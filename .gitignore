@@ -1,0 +1,45 @@
+# Root .gitignore for the entire project
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Backend (Python)
+backend/__pycache__
+backend/*.pyc
+backend/*.pyo
+backend/*.egg-info
+backend/.venv
+backend/venv
+backend/.pytest_cache
+backend/alembic_versions_backup
+
+# Frontend (Node.js)
+frontend/node_modules
+frontend/.next
+frontend/.env.local
+frontend/npm-debug.log
+frontend/yarn-error.log
+frontend/.vercel
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+
+# Database
+database.db
+*.sqlite
+*.sqlite3
+pgdata
+postgres_data
+
+# Docker
+docker-compose.override.yml
