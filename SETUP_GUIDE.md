@@ -2,7 +2,7 @@
 
 **Goal**: Get Lenoir Chatbot running locally on your machine in 8 steps.
 
-**For project details**: See [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)  
+**For project details**: See [PROJECT_DETAILS.md](PROJECT_DETAILS.md)  
 **For architectural patterns**: See [REUSABLE_SKILLS.md](REUSABLE_SKILLS.md)
 
 ---
@@ -320,11 +320,10 @@ FastAPI Backend (localhost:8000)
 ## 📚 Documentation Structure
 
 - **[README.md](README.md)** — Quick start overview
-- **[PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)** — Project description & technology stack
+- **[PROJECT_DETAILS.md](PROJECT_DETAILS.md)** — Features, tech stack, configuration, schema, troubleshooting
 - **[ORIGINAL_PROMPT.md](ORIGINAL_PROMPT.md)** — Original requirements (for regeneration)
-- **[REUSABLE_SKILLS.md](REUSABLE_SKILLS.md)** — Patterns for other projects
-- **[PROJECT_INFO.md](PROJECT_INFO.md)** — Detailed configuration reference
-- **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** — Implementation details & file structure
+- **[REUSABLE_SKILLS.md](REUSABLE_SKILLS.md)** — Architectural patterns & code patterns for reuse
+- **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** — Implementation details & file-by-file breakdown
 
 ---
 

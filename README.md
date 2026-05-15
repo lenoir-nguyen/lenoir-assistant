@@ -4,8 +4,8 @@ A personal AI assistant with memory and voice capabilities. Features real-time c
 
 **Status**: ✅ Complete and Production-Ready  
 **Quick Links**:
-- 📖 [Project Summary](PROJECT_SUMMARY.md) — Features & tech stack
-- 🚀 [Setup Guide](SETUP_GUIDE.md) — Step-by-step local setup
+- 📖 [Project Details](PROJECT_DETAILS.md) — Features, tech stack, configuration, schema
+- 🚀 [Setup Guide](SETUP_GUIDE.md) — Step-by-step local setup & testing
 - 📝 [Original Prompt](ORIGINAL_PROMPT.md) — Requirements document (for regeneration)
 - 🏗️ [Reusable Patterns](REUSABLE_SKILLS.md) — Code patterns for other projects
 
