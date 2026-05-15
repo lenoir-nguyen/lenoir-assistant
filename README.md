@@ -1,6 +1,13 @@
 # Lenoir Chatbot
 
-A personal AI assistant with memory and voice capabilities. Features chat and voice interaction in English, French, and Vietnamese, with owner authentication and RAG-based personal memory.
+A personal AI assistant with memory and voice capabilities. Features real-time chat with OpenAI GPT-4o, voice interaction (speech-to-text + TTS), English/French/Vietnamese support, owner authentication, and RAG-based personal memory system.
+
+**Status**: ✅ Complete and Production-Ready  
+**Quick Links**:
+- 📖 [Project Summary](PROJECT_SUMMARY.md) — Features & tech stack
+- 🚀 [Setup Guide](SETUP_GUIDE.md) — Step-by-step local setup
+- 📝 [Original Prompt](ORIGINAL_PROMPT.md) — Requirements document (for regeneration)
+- 🏗️ [Reusable Patterns](REUSABLE_SKILLS.md) — Code patterns for other projects
 
 ## 🏗️ Project Structure
 

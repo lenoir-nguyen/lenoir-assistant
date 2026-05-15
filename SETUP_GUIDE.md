@@ -1,42 +1,9 @@
 # Lenoir Chatbot - Complete Setup Guide
 
-## ✅ What's Been Built
+**Goal**: Get Lenoir Chatbot running locally on your machine in 8 steps.
 
-Your Lenoir Chatbot is now **fully implemented** with all components:
-
-### Backend (FastAPI + Python)
-- ✅ Database models (SQLAlchemy): Session, Message, PersonalFact, Document, DocumentChunk
-- ✅ Alembic migrations for PostgreSQL + pgvector
-- ✅ Identity service: passphrase detection + PIN verification (bcrypt)
-- ✅ LangChain chains: owner (RAG) + stranger (simple)
-- ✅ OpenAI integrations: Whisper (STT), TTS, embeddings
-- ✅ Vector store service: pgvector similarity search
-- ✅ FastAPI routers:
-  - `POST /auth/identify` — identity claim
-  - `POST /auth/verify-pin` — PIN verification
-  - `POST /chat/message` — streaming chat (SSE)
-  - `POST /voice/transcribe` — audio to text
-  - `POST /voice/speak` — text to audio
-  - `POST /memory/facts` — add personal fact
-  - `POST /memory/upload` — upload documents
-  - `GET /memory/facts` — list facts
-- ✅ CORS configured for frontend
-- ✅ Docker + docker-compose.yml for local development
-- ✅ Requirements.txt with all dependencies
-
-### Frontend (Next.js + React)
-- ✅ App structure (App Router) with TypeScript
-- ✅ Components:
-  - `IdentityPrompt` — Lenoir identification + PIN entry
-  - `ChatWindow` — main chat interface
-  - `MessageBubble` — message display with timestamps
-  - `VoiceButton` — hold-to-record voice with MediaRecorder API
-  - `LanguageSelector` — en/fr/vi language switching
-- ✅ API client library (`lib/api.ts`) — axios wrapper with all endpoints
-- ✅ Styling (CSS Modules) — clean, modern UI
-- ✅ Auto-scrolling, typing indicators, loading states
-- ✅ Audio playback for TTS responses
-- ✅ Environment configuration (.env.local.example)
+**For project details**: See [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)  
+**For architectural patterns**: See [REUSABLE_SKILLS.md](REUSABLE_SKILLS.md)
 
 ---
 
@@ -339,29 +306,34 @@ FastAPI Backend (localhost:8000)
 
 ---
 
-## ✨ Next Steps
+## 💡 Development Tips
 
-1. **Get API key**: https://platform.openai.com/api-keys
-2. **Follow Step-by-Step Setup** above
-3. **Run the app** and test all features
-4. **Deploy** to Vercel + Render when ready
-
----
-
-## 💡 Tips
-
-- **For development**: Keep docker-compose running, reload frontend for faster iteration
-- **PIN management**: Store your PIN hash in a password manager, it's sensitive
-- **Cost control**: Monitor OpenAI usage at https://platform.openai.com/account/usage
-- **Scaling**: For high usage, consider upgrading Render PostgreSQL ($7+/mo)
+- **Docker persistence**: Keep `docker-compose up -d` running in background
+- **Frontend iteration**: Restart `npm run dev` to see changes instantly
+- **Backend reload**: Use `--reload` flag with uvicorn for auto-reload on file changes
+- **PIN management**: Store your PIN hash in a password manager (sensitive material)
+- **Cost monitoring**: Check OpenAI usage at https://platform.openai.com/account/usage
+- **Database scaling**: For production, upgrade Render PostgreSQL to $7+/month tier
 
 ---
 
-## 🎉 You're All Set!
+## 📚 Documentation Structure
 
-Your Lenoir Chatbot is ready to run. Follow the setup steps above and enjoy!
+- **[README.md](README.md)** — Quick start overview
+- **[PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)** — Project description & technology stack
+- **[ORIGINAL_PROMPT.md](ORIGINAL_PROMPT.md)** — Original requirements (for regeneration)
+- **[REUSABLE_SKILLS.md](REUSABLE_SKILLS.md)** — Patterns for other projects
+- **[PROJECT_INFO.md](PROJECT_INFO.md)** — Detailed configuration reference
+- **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** — Implementation details & file structure
 
-Questions? Check:
+---
+
+## 🎉 Ready to Launch!
+
+You're all set to run Lenoir Chatbot locally. Test all 6 scenarios, then deploy to production whenever you're ready.
+
+**Stuck?** Check:
 - Backend logs: `docker-compose logs -f backend`
-- Browser console: F12 → Console tab
+- Browser console: Press F12 → Console tab
 - OpenAI status: https://status.openai.com
+- FastAPI docs: http://localhost:8000/docs (when running locally)
