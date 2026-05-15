@@ -1,7 +1,8 @@
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
+from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain.memory import ConversationBufferWindowMemory
-from langchain.chains import ConversationalRetrievalChain, LLMChain
-from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
+from langchain.chains import LLMChain
+from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from langchain_community.vectorstores import PGVector
 from sqlalchemy.orm import Session
 from config import get_settings
