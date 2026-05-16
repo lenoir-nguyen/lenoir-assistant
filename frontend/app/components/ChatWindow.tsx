@@ -1,11 +1,9 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef, useEffect } from 'react'
 import MessageBubble from './MessageBubble'
-import VoiceButton from './VoiceButton'
 import LanguageSelector from './LanguageSelector'
-import { chatMessage, transcribeAudio, synthesizeVoice } from '@/lib/api'
-import styles from './ChatWindow.module.css'
+import { sendMessage } from '@/lib/api'
 
 interface Message {
   id: string
@@ -14,36 +12,17 @@ interface Message {
   timestamp: Date
 }
 
-interface ChatWindowProps {
-  sessionId: string
-  isOwner: boolean
-  onLogout: () => void
-}
-
-export default function ChatWindow({ sessionId, isOwner, onLogout }: ChatWindowProps) {
+export default function ChatWindow() {
   const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '0',
-      role: 'assistant',
-      content: isOwner
-        ? 'Welcome back, Lenoir! How can I help you today?'
-        : 'Hello! I\'m here to chat. How can I assist you?',
-      timestamp: new Date(),
-    },
+    { id: '0', role: 'assistant', content: 'Hello! How can I help you today?', timestamp: new Date() },
   ])
   const [input, setInput] = useState('')
   const [language, setLanguage] = useState('en')
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const audioRef = useRef<HTMLAudioElement>(null)
-
-  // Auto-scroll to bottom when new messages arrive
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
 
   useEffect(() => {
-    scrollToBottom()
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -55,158 +34,53 @@ export default function ChatWindow({ sessionId, isOwner, onLogout }: ChatWindowP
     setLoading(true)
 
     try {
-      // Add user message to UI
-      const userMsg: Message = {
-        id: Date.now().toString(),
-        role: 'user',
-        content: userMessage,
-        timestamp: new Date(),
-      }
+      const userMsg: Message = { id: Date.now().toString(), role: 'user', content: userMessage, timestamp: new Date() }
       setMessages((prev) => [...prev, userMsg])
 
-      // Send to backend
-      const response = await chatMessage(sessionId, userMessage, language)
+      const history = messages.map((msg) => ({ role: msg.role, content: msg.content }))
+      const response = await sendMessage(userMessage, language, history)
 
-      // Add assistant response
-      const assistantMsg: Message = {
-        id: response.message_id || Date.now().toString(),
-        role: 'assistant',
-        content: response.content || 'Sorry, I couldn\'t understand that.',
-        timestamp: new Date(),
-      }
+      const assistantMsg: Message = { id: (Date.now() + 1).toString(), role: 'assistant', content: response.content, timestamp: new Date() }
       setMessages((prev) => [...prev, assistantMsg])
-
-      // Play audio response if not already playing
-      if (language !== 'en' || Math.random() > 0.5) {
-        // Optionally play voice response
-        try {
-          const audioBlob = await synthesizeVoice(
-            assistantMsg.content,
-            sessionId,
-            language
-          )
-          if (audioRef.current) {
-            audioRef.current.src = URL.createObjectURL(audioBlob)
-            audioRef.current.play().catch(() => {})
-          }
-        } catch (error) {
-          console.error('Failed to synthesize voice:', error)
-        }
-      }
     } catch (error) {
       console.error('Chat error:', error)
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          role: 'assistant',
-          content: 'Sorry, I encountered an error. Please try again.',
-          timestamp: new Date(),
-        },
-      ])
+      setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: 'Sorry, I encountered an error.', timestamp: new Date() }])
     } finally {
       setLoading(false)
     }
-  }
-
-  const handleVoiceRecording = async (audioBlob: Blob) => {
-    setLoading(true)
-
-    try {
-      // Transcribe audio
-      const transcript = await transcribeAudio(audioBlob, sessionId, language)
-
-      // Use transcript as message
-      setInput(transcript.transcript)
-
-      // Optionally auto-send or let user review
-      // For now, populate input and let user send
-    } catch (error) {
-      console.error('Transcription error:', error)
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          role: 'assistant',
-          content: 'Sorry, I couldn\'t understand the audio. Please try again.',
-          timestamp: new Date(),
-        },
-      ])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleLanguageChange = (newLanguage: string) => {
-    setLanguage(newLanguage)
   }
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <div className={styles.title}>
-          <h1>Lenoir Chatbot</h1>
-          {isOwner && <span className={styles.badge}>Owner</span>}
-        </div>
-        <div className={styles.controls}>
-          <LanguageSelector currentLanguage={language} onLanguageChange={handleLanguageChange} />
-          <button onClick={onLogout} className={styles.logoutBtn}>
-            Logout
-          </button>
-        </div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'white' }}>
+      <div style={{ padding: '16px', borderBottom: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1 style={{ fontSize: '1.5em', margin: 0 }}>Lenoir Chatbot</h1>
+        <LanguageSelector currentLanguage={language} onLanguageChange={setLanguage} />
       </div>
 
-      <div className={styles.messagesContainer}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column' }}>
         {messages.map((msg) => (
-          <div key={msg.id} className={styles.messageWrapper}>
-            <MessageBubble
-              role={msg.role}
-              content={msg.content}
-              timestamp={msg.timestamp}
-            />
-          </div>
+          <MessageBubble key={msg.id} role={msg.role} content={msg.content} timestamp={msg.timestamp} />
         ))}
-        {loading && (
-          <div className={styles.messageWrapper}>
-            <div className={styles.typing}>
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-          </div>
-        )}
+        {loading && <div style={{ textAlign: 'center', color: '#999' }}>Thinking...</div>}
         <div ref={messagesEndRef} />
       </div>
 
-      <div className={styles.inputArea}>
-        <form onSubmit={handleSendMessage} className={styles.inputForm}>
+      <div style={{ padding: '16px', borderTop: '1px solid #ddd' }}>
+        <form onSubmit={handleSendMessage} style={{ display: 'flex', gap: '8px' }}>
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Type a message..."
             disabled={loading}
-            className={styles.input}
+            style={{ flex: 1, padding: '12px', border: '1px solid #ddd', borderRadius: '6px' }}
             autoFocus
           />
-          <VoiceButton
-            onRecordingComplete={handleVoiceRecording}
-            disabled={loading}
-          />
-          <button
-            type="submit"
-            disabled={!input.trim() || loading}
-            className={styles.sendBtn}
-          >
+          <button type="submit" disabled={!input.trim() || loading} style={{ padding: '12px 24px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
             Send
           </button>
         </form>
       </div>
-
-      <audio
-        ref={audioRef}
-        style={{ display: 'none' }}
-      />
     </div>
   )
 }

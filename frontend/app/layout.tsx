@@ -3,7 +3,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Lenoir Chatbot',
-  description: 'Personal AI assistant with memory and voice capabilities',
+  description: 'A simple AI chat assistant',
 }
 
 export default function RootLayout({

@@ -1,55 +1,26 @@
-'use client'
-
-import { useState } from 'react'
-import styles from './LanguageSelector.module.css'
-
-interface LanguageSelectorProps {
+interface Props {
   currentLanguage: string
-  onLanguageChange: (language: string) => void
+  onLanguageChange: (lang: string) => void
 }
 
-const languages = [
-  { code: 'en', name: '🇬🇧 English' },
-  { code: 'fr', name: '🇫🇷 Français' },
-  { code: 'vi', name: '🇻🇳 Tiếng Việt' },
+const LANGUAGES = [
+  { code: 'en', label: '🇬🇧 English' },
+  { code: 'fr', label: '🇫🇷 Français' },
+  { code: 'vi', label: '🇻🇳 Tiếng Việt' },
 ]
 
-export default function LanguageSelector({
-  currentLanguage,
-  onLanguageChange,
-}: LanguageSelectorProps) {
-  const [isOpen, setIsOpen] = useState(false)
-
-  const currentLang = languages.find((l) => l.code === currentLanguage) || languages[0]
-
+export default function LanguageSelector({ currentLanguage, onLanguageChange }: Props) {
   return (
-    <div className={styles.container}>
-      <button
-        className={styles.trigger}
-        onClick={() => setIsOpen(!isOpen)}
-        title="Change language"
-      >
-        {currentLang.name}
-      </button>
-
-      {isOpen && (
-        <div className={styles.dropdown}>
-          {languages.map((lang) => (
-            <button
-              key={lang.code}
-              className={`${styles.option} ${
-                currentLanguage === lang.code ? styles.active : ''
-              }`}
-              onClick={() => {
-                onLanguageChange(lang.code)
-                setIsOpen(false)
-              }}
-            >
-              {lang.name}
-            </button>
-          ))}
-        </div>
-      )}
+    <div style={{ display: 'flex', gap: '8px' }}>
+      {LANGUAGES.map((lang) => (
+        <button
+          key={lang.code}
+          onClick={() => onLanguageChange(lang.code)}
+          style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: '6px', backgroundColor: currentLanguage === lang.code ? '#007bff' : 'white', color: currentLanguage === lang.code ? 'white' : '#333', cursor: 'pointer', fontWeight: currentLanguage === lang.code ? 'bold' : 'normal' }}
+        >
+          {lang.label}
+        </button>
+      ))}
     </div>
   )
 }
