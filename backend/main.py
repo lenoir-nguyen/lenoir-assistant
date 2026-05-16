@@ -1,9 +1,6 @@
 from fastapi import FastAPI
-from routers import chat
 
 app = FastAPI(title="Lenoir Chatbot API", version="1.0.0")
-
-app.include_router(chat.router)
 
 @app.get("/health")
 async def health_check():
