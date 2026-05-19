@@ -340,40 +340,94 @@ git push origin --tags
 
 ---
 
-## Environment Variables
+## Environment Variables & Secrets Management
 
-### Required in `.env` (Backend)
+### Local Development (Your Machine)
+
+**`backend/.env` (git-ignored, NEVER commit):**
 ```
 OPENAI_API_KEY=sk-proj-...
 DEBUG=false
-FRONTEND_URL=https://lenoir-chatbot.vercel.app
+FRONTEND_URL=http://localhost:3000
 REDIS_URL=redis://redis:6379
 ```
 
-### Required in `.env.local` (Frontend)
+**`frontend/.env.local` (git-ignored, NEVER commit):**
 ```
-NEXT_PUBLIC_API_URL=https://lenoir-chatbot-production.up.railway.app
-NEXT_PUBLIC_FRONTEND_URL=https://lenoir-chatbot.vercel.app
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_FRONTEND_URL=http://localhost:3000
 ```
 
-### Railway Environment Variables
+**`backend/.env.example` (commit this, no real values):**
 ```
 OPENAI_API_KEY=sk-proj-...
 DEBUG=false
-FRONTEND_URL=https://lenoir-chatbot.vercel.app
-REDIS_URL=redis://internal-redis:6379 (or managed Redis)
+FRONTEND_URL=http://localhost:3000
+REDIS_URL=redis://redis:6379
 ```
 
-### Vercel Environment Variables
+### Production Deployment
+
+**Railway Environment Variables:**
+```
+OPENAI_API_KEY=sk-proj-...              (from GitHub Secrets or Railway vault)
+DEBUG=false
+FRONTEND_URL=https://lenoir-chatbot.vercel.app
+REDIS_URL=redis://internal-redis:6379  (or managed service)
+```
+
+**Vercel Environment Variables:**
 ```
 NEXT_PUBLIC_API_URL=https://lenoir-chatbot-production.up.railway.app
 ```
 
-**Never:**
-- ❌ Log environment variables
-- ❌ Commit .env files
-- ❌ Expose API keys in frontend
-- ❌ Use API keys in client-side code
+### GitHub Secrets (for CI/CD)
+
+**Setup in GitHub:**
+1. Go to Settings → Secrets and variables → Actions
+2. Add these secrets:
+   ```
+   OPENAI_API_KEY = sk-proj-...
+   DATABASE_URL = postgresql://... (when v4 adds database)
+   OWNER_PIN_HASH = bcrypt hash (when v3 adds auth)
+   ```
+
+**Use in tests/CI:**
+```yaml
+# .github/workflows/test.yml
+env:
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+run: pytest --cov=backend tests/
+```
+
+### Team Credential Sharing (IMPORTANT)
+
+**For Lenoir's Personal Project:**
+- Store credentials in 1Password personal vault
+- Each developer (future) uses 1Password to access
+
+**If Adding Team Members:**
+1. Create 1Password shared vault
+2. Store API keys there
+3. Share vault with team
+4. Each person copies to their local .env
+5. **NEVER commit .env to GitHub**
+
+**Not for GitHub:**
+- ❌ Do NOT store credentials in GitHub repo
+- ❌ Do NOT commit .env files (even with placeholders)
+- ❌ Do NOT expose API keys in frontend code
+- ❌ Do NOT log or display credentials
+
+### Secret Safety Checklist
+
+**Before EVERY push:**
+- [ ] No API keys in code
+- [ ] .env files are git-ignored
+- [ ] Only .env.example is committed
+- [ ] No secrets in logs/comments
+- [ ] Run: `git diff --cached | grep -i "api_key\|password\|token"`
+- [ ] Result should be empty ✓
 
 ---
 
