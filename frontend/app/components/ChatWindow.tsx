@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import MessageBubble from './MessageBubble'
 import LanguageSelector from './LanguageSelector'
+import VoiceButton from './VoiceButton'
 import { sendMessage } from '@/lib/api'
 
 interface Message {
@@ -59,14 +60,14 @@ export default function ChatWindow() {
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column' }}>
         {messages.map((msg) => (
-          <MessageBubble key={msg.id} role={msg.role} content={msg.content} timestamp={msg.timestamp} />
+          <MessageBubble key={msg.id} role={msg.role} content={msg.content} timestamp={msg.timestamp} language={language} />
         ))}
         {loading && <div style={{ textAlign: 'center', color: '#999' }}>Thinking...</div>}
         <div ref={messagesEndRef} />
       </div>
 
       <div style={{ padding: '16px', borderTop: '1px solid #ddd' }}>
-        <form onSubmit={handleSendMessage} style={{ display: 'flex', gap: '8px' }}>
+        <form onSubmit={handleSendMessage} style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
           <input
             type="text"
             value={input}
@@ -76,6 +77,7 @@ export default function ChatWindow() {
             style={{ flex: 1, padding: '12px', border: '1px solid #ddd', borderRadius: '6px' }}
             autoFocus
           />
+          <VoiceButton onTranscript={setInput} disabled={loading} />
           <button type="submit" disabled={!input.trim() || loading} style={{ padding: '12px 24px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
             Send
           </button>

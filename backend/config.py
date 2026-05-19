@@ -29,11 +29,14 @@ class Settings(BaseSettings):
         OPENAI_API_KEY (str): Secret API key for OpenAI. Must be set in .env
         DEBUG (bool): Enable debug mode for development (default: False)
         FRONTEND_URL (str): Frontend origin for CORS policy (default: http://localhost:3000)
+        tts_voice (str): OpenAI TTS voice for text-to-speech synthesis (default: "nova")
+                        Valid options: alloy, echo, fable, onyx, nova, shimmer
     """
 
     OPENAI_API_KEY: str
     DEBUG: bool = False
     FRONTEND_URL: str = "http://localhost:3000"
+    tts_voice: str = "nova"  # OpenAI TTS voice for v2 voice output feature
 
     # Pydantic v2 configuration
     # env_file: Load variables from .env file in this directory

@@ -27,13 +27,43 @@
 
 ---
 
-## v2.0.0 — Voice Features (Planned)
+## v2.0.0 — Voice Features (2026-05-19)
 
-**Planned Features**:
-- Voice input (Whisper STT)
-- Voice output (TTS API)
-- Voice button toggle in UI
-- Audio streaming
+**Status**: ✅ In Development
+
+**Features**:
+- Voice input: Speech-to-text (Whisper STT) via microphone
+- Voice output: Text-to-speech (TTS) with per-message speaker button
+- Transcription inserts into input field (user can edit before sending)
+- Audio playback via speaker icon on assistant messages
+- Language-aware TTS (responds in selected language)
+- Graceful fallback if audio APIs fail
+
+**New Components**:
+- `VoiceButton.tsx` — Microphone recording button with visual feedback
+- `backend/routers/voice.py` — Two endpoints: `/voice/transcribe` and `/voice/speak`
+- `backend/tests/test_voice.py` — Comprehensive voice endpoint tests (TDD)
+
+**API Changes**:
+- New endpoints: `POST /voice/transcribe` (audio → text) and `POST /voice/speak` (text → audio)
+- New config: `OPENAI_TTS_VOICE` (default: "nova")
+- Frontend API functions: `transcribeAudio()` and `speakText()`
+
+**Tech Stack Additions**:
+- MediaRecorder API (native browser, no packages needed)
+- OpenAI Whisper model (`whisper-1`)
+- OpenAI TTS model (`tts-1`)
+
+**Testing**: 
+- Backend unit tests: 4 test cases (transcribe success/missing/empty, speak success/empty/missing)
+- Frontend: VoiceButton component with microphone permission handling
+- E2E: Mic recording → transcription → input → chat → TTS playback
+
+**Key Design Decisions**:
+- TTS is optional (speaker button, not auto-play) — respects user preferences
+- Transcription shows in input field — user can verify/edit before sending
+- Separate endpoints (not combined) — follows DRY principle
+- No session ID persistence in v2 — stays in v4 with database
 
 ---
 

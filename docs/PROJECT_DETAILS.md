@@ -128,14 +128,83 @@ lenoir-chatbot/
 - `400`: Invalid request (missing fields)
 - `500`: Server error (API key issue, OpenAI error)
 
+### POST /voice/transcribe (v2)
+
+**Purpose**: Convert speech audio to text using OpenAI Whisper
+
+**Request**:
+- Content-Type: `multipart/form-data`
+- Body: File upload with `audio` field (supported formats: webm, wav, mp4, flac)
+
+**Response**:
+```json
+{
+  "text": "Hello, how are you?"
+}
+```
+
+**Status Codes**:
+- `200`: Success
+- `422`: Missing audio file or validation error
+- `400`: Invalid audio format
+- `500`: OpenAI API error
+
+**Example (Frontend)**:
+```typescript
+const formData = new FormData()
+formData.append('audio', audioBlob)
+const response = await fetch('/voice/transcribe', {
+  method: 'POST',
+  body: formData
+})
+const { text } = await response.json()
+```
+
+### POST /voice/speak (v2)
+
+**Purpose**: Convert text to speech using OpenAI TTS
+
+**Request**:
+```json
+{
+  "text": "Hello, how are you?",
+  "language": "en"
+}
+```
+
+**Response**:
+- Content-Type: `audio/mpeg` (mp3 audio stream)
+- Body: MP3 audio data that can be played directly
+
+**Status Codes**:
+- `200`: Success
+- `422`: Missing or empty text field
+- `500`: OpenAI API error
+
+**Example (Frontend)**:
+```typescript
+const response = await fetch('/voice/speak', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ text: 'Hello', language: 'en' })
+})
+const audioBlob = await response.blob()
+const audio = new Audio(URL.createObjectURL(audioBlob))
+audio.play()
+```
+
 ### GET /health
 
 **Response**:
 ```json
 {
-  "status": "ok"
+  "status": "ok",
+  "redis": "connected"
 }
 ```
+
+**Status Codes**:
+- `200`: Always succeeds (even if Redis is down)
 
 ## Configuration
 
