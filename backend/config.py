@@ -31,12 +31,16 @@ class Settings(BaseSettings):
         FRONTEND_URL (str): Frontend origin for CORS policy (default: http://localhost:3000)
         tts_voice (str): OpenAI TTS voice for text-to-speech synthesis (default: "nova")
                         Valid options: alloy, echo, fable, onyx, nova, shimmer
+        OWNER_PIN_HASH (str): bcrypt hash of owner PIN for authentication (v3 feature)
+        AUTH_TOKEN_TTL (int): Auth token lifetime in seconds (default: 86400 = 24 hours)
     """
 
     OPENAI_API_KEY: str
     DEBUG: bool = False
     FRONTEND_URL: str = "http://localhost:3000"
     tts_voice: str = "nova"  # OpenAI TTS voice for v2 voice output feature
+    OWNER_PIN_HASH: str = ""  # bcrypt hash for owner authentication (v3)
+    AUTH_TOKEN_TTL: int = 86400  # token lifetime in seconds (24 hours)
 
     # Pydantic v2 configuration
     # env_file: Load variables from .env file in this directory

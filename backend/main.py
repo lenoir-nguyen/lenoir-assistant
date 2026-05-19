@@ -15,7 +15,7 @@ Configuration:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import get_settings
-from routers import chat, voice
+from routers import chat, voice, auth
 from cache import is_redis_available
 
 settings = get_settings()
@@ -48,6 +48,7 @@ app.add_middleware(
 # Example: chat router has prefix="/chat", so endpoints are /chat/message
 # voice router has prefix="/voice", so endpoints are /voice/transcribe and /voice/speak
 
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(chat.router)
 app.include_router(voice.router)
 

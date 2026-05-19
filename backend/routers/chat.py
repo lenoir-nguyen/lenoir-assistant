@@ -13,16 +13,24 @@ Redis Usage:
 - Gracefully falls back if Redis is unavailable
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from openai import OpenAI
 from config import get_settings
 from cache import cache_get, cache_set
+from routers.auth import get_is_owner
 import uuid
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 settings = get_settings()
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+# System prompts for owner vs guest mode (v3)
+OWNER_SYSTEM_PROMPT = """You are Lenoir's personal AI assistant. You know Lenoir personally and respond in a warm, familiar, and helpful tone.
+Always respond in {language}."""
+
+STRANGER_SYSTEM_PROMPT = """You are a friendly AI assistant on Lenoir's personal chatbot. Be helpful and welcoming to visitors.
+Always respond in {language}."""
 
 # ============================================================================
 # Data Models
@@ -102,18 +110,20 @@ async def get_or_create_session(session_id: str = None, language: str = "en") ->
 # ============================================================================
 
 @router.post("/message", response_model=ChatResponse)
-async def chat_message(request: ChatRequest):
+async def chat_message(request: ChatRequest, http_request: Request):
     """
     Handle chat message requests and return GPT-4o responses.
 
     Workflow:
-    1. Manage user session (with Redis caching)
-    2. Build message history with system prompt
-    3. Call OpenAI GPT-4o API
-    4. Return response in user's preferred language
+    1. Check if user is authenticated as owner (from auth token in Authorization header)
+    2. Manage user session (with Redis caching)
+    3. Build message history with owner or guest system prompt
+    4. Call OpenAI GPT-4o API
+    5. Return response in user's preferred language
 
     Args:
         request (ChatRequest): Contains message, language, history, session_id
+        http_request (Request): FastAPI Request object (reads Authorization header)
 
     Returns:
         ChatResponse: Contains response content and language used
@@ -122,6 +132,9 @@ async def chat_message(request: ChatRequest):
         HTTPException: 500 status code if API call fails
     """
     try:
+        # Check if user is authenticated as owner (v3)
+        is_owner = await get_is_owner(http_request)
+
         # REDIS USAGE: Get or create session and resolve language preference
         # This checks Redis cache for the user's language setting
         session_id, language = await get_or_create_session(
@@ -129,9 +142,9 @@ async def chat_message(request: ChatRequest):
             language=request.language
         )
 
-        # Build system prompt that instructs GPT-4o to respond in user's language
-        system_prompt = f"""You are a friendly and helpful AI assistant.
-Always respond in {language}."""
+        # Build system prompt based on owner/guest status (v3)
+        prompt_template = OWNER_SYSTEM_PROMPT if is_owner else STRANGER_SYSTEM_PROMPT
+        system_prompt = prompt_template.format(language=language)
 
         # Construct message array: [system_prompt, conversation_history, user_message]
         messages = [{"role": "system", "content": system_prompt}]

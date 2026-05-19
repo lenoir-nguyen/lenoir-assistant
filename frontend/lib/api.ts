@@ -17,16 +17,41 @@ interface SpeakRequest {
   language: string
 }
 
+interface LoginResponse {
+  token: string
+  is_owner: boolean
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+export async function login(
+  passphrase: string,
+  pin: string
+): Promise<LoginResponse> {
+  const response = await fetch(`${API_URL}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ passphrase, pin }),
+  })
+
+  if (!response.ok) throw new Error(`Login failed: ${response.statusText}`)
+  return response.json()
+}
 
 export async function sendMessage(
   message: string,
   language: string,
-  history: Message[]
+  history: Message[],
+  authToken: string | null = null
 ): Promise<ChatResponse> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`
+  }
+
   const response = await fetch(`${API_URL}/chat/message`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ message, language, history }),
   })
 

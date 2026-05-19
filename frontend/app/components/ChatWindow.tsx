@@ -13,7 +13,12 @@ interface Message {
   timestamp: Date
 }
 
-export default function ChatWindow() {
+interface ChatWindowProps {
+  authToken: string | null
+  isOwner: boolean
+}
+
+export default function ChatWindow({ authToken, isOwner }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([
     { id: '0', role: 'assistant', content: 'Hello! How can I help you today?', timestamp: new Date() },
   ])
@@ -39,7 +44,7 @@ export default function ChatWindow() {
       setMessages((prev) => [...prev, userMsg])
 
       const history = messages.map((msg) => ({ role: msg.role, content: msg.content }))
-      const response = await sendMessage(userMessage, language, history)
+      const response = await sendMessage(userMessage, language, history, authToken)
 
       const assistantMsg: Message = { id: (Date.now() + 1).toString(), role: 'assistant', content: response.content, timestamp: new Date() }
       setMessages((prev) => [...prev, assistantMsg])
@@ -54,7 +59,21 @@ export default function ChatWindow() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'white' }}>
       <div style={{ padding: '16px', borderBottom: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ fontSize: '1.5em', margin: 0 }}>Lenoir Chatbot</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <h1 style={{ fontSize: '1.5em', margin: 0 }}>Lenoir Chatbot</h1>
+          <span
+            style={{
+              padding: '4px 12px',
+              borderRadius: '20px',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              backgroundColor: isOwner ? '#d4edda' : '#e2e3e5',
+              color: isOwner ? '#155724' : '#383d41',
+            }}
+          >
+            {isOwner ? '🔐 Owner Mode' : '👤 Guest Mode'}
+          </span>
+        </div>
         <LanguageSelector currentLanguage={language} onLanguageChange={setLanguage} />
       </div>
 
