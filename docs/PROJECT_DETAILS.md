@@ -12,6 +12,8 @@ Lenoir Chatbot is a multilingual AI chat application built with a modern tech st
 | Backend Runtime | Uvicorn | 0.24.0 | ASGI application server |
 | LLM Integration | OpenAI SDK | 1.3.5 | GPT-4o API client |
 | Configuration | Pydantic | 2.4.2 | Settings management & validation |
+| Authentication | bcrypt | 4.1.2 | PIN hashing (v3) |
+| Cache Layer | Redis | 5.0.0 | Session token storage |
 | Frontend Framework | Next.js | 14.0.0 | Full-stack React app |
 | UI Library | React | 18.2.0 | Component framework |
 | Frontend Language | TypeScript | Latest | Type-safe JavaScript |
@@ -28,9 +30,11 @@ lenoir-chatbot/
 │   │   ├── layout.tsx                # Root layout (metadata, fonts)
 │   │   ├── globals.css               # Global styles (reset, base)
 │   │   └── components/
+│   │       ├── AuthScreen.tsx        # Login screen (v3, guest/owner modes)
 │   │       ├── ChatWindow.tsx        # Main chat UI (state, history)
-│   │       ├── MessageBubble.tsx     # Message display component
-│   │       └── LanguageSelector.tsx  # Language picker (en/fr/vi)
+│   │       ├── MessageBubble.tsx     # Message display component (v2 TTS)
+│   │       ├── LanguageSelector.tsx  # Language picker (en/fr/vi)
+│   │       └── VoiceButton.tsx       # Microphone button (v2)
 │   ├── lib/
 │   │   └── api.ts                    # sendMessage() function
 │   ├── package.json                  # Dependencies, scripts
@@ -45,7 +49,9 @@ lenoir-chatbot/
 │   ├── config.py                     # Settings class (Pydantic)
 │   ├── routers/
 │   │   ├── __init__.py
-│   │   └── chat.py                   # POST /chat/message endpoint
+│   │   ├── auth.py                   # POST /auth/login, /auth/logout (v3)
+│   │   ├── chat.py                   # POST /chat/message (updated for v3 auth)
+│   │   └── voice.py                  # POST /voice/transcribe, /voice/speak (v2)
 │   ├── requirements.txt              # Dependencies
 │   ├── .env.example                  # Env template (committed)
 │   ├── .env                          # Actual env (git-ignored)
@@ -95,7 +101,53 @@ lenoir-chatbot/
 
 ## API Contract
 
+### POST /auth/login (v3)
+
+**Purpose**: Authenticate as owner with passphrase + PIN
+
+**Request**:
+```json
+{
+  "passphrase": "I am Lenoir and here to help",
+  "pin": "1234"
+}
+```
+
+**Response** (success):
+```json
+{
+  "token": "5A8K9...z2Q1x",
+  "is_owner": true
+}
+```
+
+**Status Codes**:
+- `200`: Success — token returned
+- `401`: Incorrect passphrase or PIN
+- `422`: Missing fields
+
+### POST /auth/logout (v3)
+
+**Purpose**: Invalidate the current session token
+
+**Request**:
+- Header: `Authorization: Bearer {token}`
+
+**Response**:
+```json
+{
+  "message": "logged out"
+}
+```
+
+**Status Codes**:
+- `200`: Success — token deleted
+- `401`: Invalid or expired token
+- `403`: Missing Authorization header
+
 ### POST /chat/message
+
+**Purpose**: Send a chat message and receive GPT-4o response
 
 **Request**:
 ```json
@@ -114,6 +166,11 @@ lenoir-chatbot/
   ]
 }
 ```
+
+**Optional v3 Authentication**:
+- Header: `Authorization: Bearer {token}` (v3)
+- If token present: uses owner system prompt ("You are Lenoir's personal AI assistant...")
+- If no token: uses guest system prompt ("You are a friendly AI assistant...")
 
 **Response**:
 ```json
@@ -215,6 +272,9 @@ audio.play()
 | `OPENAI_API_KEY` | Yes | `sk-proj-...` | OpenAI API authentication |
 | `DEBUG` | No | `false` | Enable debug logging |
 | `FRONTEND_URL` | No | `http://localhost:3000` | CORS allowed origin |
+| `OPENAI_TTS_VOICE` | No | `nova` | TTS voice for v2 (alloy, echo, fable, onyx, nova, shimmer) |
+| `OWNER_PIN_HASH` | No (v3) | bcrypt hash | bcrypt hash of owner PIN (generated with `hash_pin()`) |
+| `AUTH_TOKEN_TTL` | No | `86400` | Auth token lifetime in seconds (default: 24h) |
 
 ### Frontend Environment Variables
 
