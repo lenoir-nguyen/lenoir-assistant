@@ -6,6 +6,7 @@ interface Message {
 interface ChatResponse {
   content: string
   language: string
+  session_id: string  // v4: persist conversation across page reloads
 }
 
 interface TranscribeResponse {
@@ -42,7 +43,8 @@ export async function sendMessage(
   message: string,
   language: string,
   history: Message[],
-  authToken: string | null = null
+  authToken: string | null = null,
+  sessionId: string | null = null  // v4: persistent conversation sessions
 ): Promise<ChatResponse> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (authToken) {
@@ -52,7 +54,7 @@ export async function sendMessage(
   const response = await fetch(`${API_URL}/chat/message`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ message, language, history }),
+    body: JSON.stringify({ message, language, history, session_id: sessionId }),
   })
 
   if (!response.ok) throw new Error(`API error: ${response.statusText}`)

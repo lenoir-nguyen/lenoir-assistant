@@ -1,25 +1,28 @@
 """
-Lenoir Chatbot API - Main Application Entry Point
+Lenoir Assistant API - Main Application Entry Point (v4)
 
 This is the FastAPI application factory and configuration. It handles:
 - CORS middleware for cross-origin requests from frontend
 - Router registration for all API endpoints
-- Health check endpoint with Redis status monitoring
+- Health check endpoint with Redis + PostgreSQL status monitoring
 
 Configuration:
-- Version: 1.0.0 (Basic chat with language support)
+- Version: 4.0.0 (LangChain + PostgreSQL persistence)
 - Base URL: /chat (all chat endpoints prefixed with /chat)
-- Health check: /health (returns API and cache status)
+- Health check: /health (returns API, cache, and database status)
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 from config import get_settings
 from routers import chat, voice, auth
 from cache import is_redis_available
+from db.session import get_db
 
 settings = get_settings()
-app = FastAPI(title="Lenoir Chatbot API", version="1.0.0")
+app = FastAPI(title="Lenoir Assistant API", version="4.0.0")
 
 # ============================================================================
 # CORS Middleware - Allow Frontend to Call This API
@@ -57,36 +60,45 @@ app.include_router(voice.router)
 # ============================================================================
 
 @app.get("/health")
-async def health_check():
+async def health_check(db: AsyncSession = Depends(get_db)):
     """
-    Health check endpoint for monitoring API status.
+    Health check endpoint for monitoring API status (v4: includes database).
 
-    Returns both API and Redis (cache) status. Useful for:
+    Returns API, Redis (cache), and PostgreSQL (database) status. Useful for:
     - Load balancer health checks (Railway, Vercel, etc.)
-    - Monitoring Redis connectivity
+    - Monitoring cache and database connectivity
     - Debugging deployment issues
 
-    Redis Usage:
-    - Checks if Redis is accessible via is_redis_available()
-    - Returns "connected" or "disconnected" status
-    - Does NOT affect response if Redis is down (graceful degradation)
+    Status Behavior:
+    - Redis down: Returns "ok" + "redis": "disconnected" (graceful degradation)
+    - Database down: Returns "ok" + "database": "disconnected" (blocks v4 features)
+    - Both down: Returns "ok" + both "disconnected" (still alive)
 
     Returns:
-        dict: Contains "status" (API status) and "redis" (cache status)
+        dict: Contains "status", "redis", and "database" status
 
     Example response:
         {
             "status": "ok",
-            "redis": "connected"
+            "redis": "connected",
+            "database": "connected"
         }
     """
-    # REDIS CHECK: Ping Redis to verify cache layer is accessible
-    # If Redis is down, this still returns "ok" but "redis": "disconnected"
+    # REDIS CHECK: Ping Redis to verify cache layer
     redis_status = "connected" if is_redis_available() else "disconnected"
+
+    # DATABASE CHECK: Verify PostgreSQL connection with simple query
+    db_status = "disconnected"
+    try:
+        await db.execute(text("SELECT 1"))
+        db_status = "connected"
+    except Exception:
+        pass
 
     return {
         "status": "ok",
-        "redis": redis_status
+        "redis": redis_status,
+        "database": db_status
     }
 
 

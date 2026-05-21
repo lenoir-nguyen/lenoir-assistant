@@ -1,36 +1,34 @@
 """
-Chat router for handling conversation endpoints.
+Chat router for handling conversation endpoints (v4: LangChain + PostgreSQL).
 
-This module implements the chat API with support for:
-- Multi-language conversations (auto-responds in user's language)
-- Conversation history management
-- Session tracking with Redis caching for user preferences
-- OpenAI GPT-4o integration for intelligent responses
+This module implements persistent chat with:
+- LangChain ConversationChain for intelligent memory management
+- PostgreSQL database for conversation persistence (owner only)
+- Async SQLAlchemy for non-blocking database operations
+- Multi-language support with language persistence
+- Owner vs guest differentiation (owner: persistent, guest: ephemeral)
 
-Redis Usage:
-- Caches user language preference per session (24h TTL)
-- Enables faster retrieval of user preferences on subsequent messages
-- Gracefully falls back if Redis is unavailable
+Database Flow:
+1. Each chat request gets or creates a Session in PostgreSQL
+2. Backend fetches previous messages from DB for LangChain memory
+3. LangChain ConversationChain manages prompt building + OpenAI
+4. Backend stores user message and assistant response in DB
+5. Frontend receives session_id to persist across page reloads
 """
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel
-from openai import OpenAI
+from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID, uuid4
 from config import get_settings
-from cache import cache_get, cache_set
+from db.session import get_db
+from db.utils import get_or_create_session, get_recent_messages, store_message
 from routers.auth import get_is_owner
-import uuid
+from services.chain import build_owner_chain, build_stranger_chain
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 settings = get_settings()
-client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
-# System prompts for owner vs guest mode (v3)
-OWNER_SYSTEM_PROMPT = """You are Lenoir's personal AI assistant. You know Lenoir personally and respond in a warm, familiar, and helpful tone.
-Always respond in {language}."""
-
-STRANGER_SYSTEM_PROMPT = """You are a friendly AI assistant on Lenoir's personal chatbot. Be helpful and welcoming to visitors.
-Always respond in {language}."""
 
 # ============================================================================
 # Data Models
@@ -43,132 +41,123 @@ class Message(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    """Request payload for /chat/message endpoint."""
+    """Request payload for /chat/message endpoint (v4)."""
     message: str
     language: str = "en"
-    history: list[Message] = []
-    session_id: str = None
+    history: list[Message] = []  # Deprecated in v4 (backend fetches from DB)
+    session_id: str | None = None  # NEW: session UUID for persistence
 
 
 class ChatResponse(BaseModel):
-    """Response payload from /chat/message endpoint."""
+    """Response payload from /chat/message endpoint (v4)."""
     content: str
     language: str
+    session_id: str  # NEW: return session_id so frontend can persist it
 
 
 # ============================================================================
-# Redis Session Management (Reusable Helper)
-# ============================================================================
-
-async def get_or_create_session(session_id: str = None, language: str = "en") -> tuple[str, str]:
-    """
-    Manage user session with Redis caching for preferences.
-
-    This function implements the session management logic:
-    1. Generate or use provided session_id (UUID if not provided)
-    2. Check Redis for cached session data
-    3. Use cached language if available, otherwise use request language
-    4. Cache new session for future requests (24h TTL)
-
-    This is extracted as a reusable function to avoid DRY when handling
-    sessions in multiple endpoints (currently just /message, but extensible
-    for future endpoints like /feedback, /preferences, etc.).
-
-    Args:
-        session_id (str, optional): Unique session identifier. If None, generates UUID.
-        language (str): Requested language code (e.g., "en", "fr", "vi")
-
-    Returns:
-        tuple[str, str]: (session_id, resolved_language)
-            - session_id: The session identifier (generated or provided)
-            - resolved_language: Language to use (from cache or request)
-
-    Example:
-        >>> session_id, language = await get_or_create_session(session_id="user123", language="fr")
-        >>> # Next time with same session_id, language will be "fr" from cache
-    """
-    # Generate session ID if not provided (allows browser sessions to be tracked)
-    session_id = session_id or str(uuid.uuid4())
-
-    # Try to retrieve cached session preferences from Redis
-    cache_key = f"session:{session_id}"
-    cached_session = await cache_get(cache_key)
-
-    # If we found a cached session, use the cached language preference
-    if cached_session:
-        language = cached_session.get("language", language)
-    else:
-        # New session: store language preference for 24 hours
-        # Next request with same session_id will retrieve this cached preference
-        await cache_set(cache_key, {"language": language}, ttl=86400)
-
-    return session_id, language
-
-
-# ============================================================================
-# API Endpoints
+# Chat Endpoint (v4: LangChain + Database)
 # ============================================================================
 
 @router.post("/message", response_model=ChatResponse)
-async def chat_message(request: ChatRequest, http_request: Request):
+async def chat_message(
+    request: ChatRequest,
+    http_request: Request,
+    db: AsyncSession = Depends(get_db)
+):
     """
-    Handle chat message requests and return GPT-4o responses.
+    Handle chat message with LangChain orchestration and database persistence.
 
-    Workflow:
-    1. Check if user is authenticated as owner (from auth token in Authorization header)
-    2. Manage user session (with Redis caching)
-    3. Build message history with owner or guest system prompt
-    4. Call OpenAI GPT-4o API
-    5. Return response in user's preferred language
+    v4 Workflow:
+    1. Check if user is authenticated as owner (bearer token from v3)
+    2. Get or create session in PostgreSQL
+    3. Store user message in database
+    4. Fetch recent messages from database for LangChain memory
+    5. Build appropriate LangChain chain (owner vs guest)
+    6. Call LangChain ConversationChain (orchestrates OpenAI call)
+    7. Store assistant response in database
+    8. Return response + session_id (for frontend persistence)
 
     Args:
-        request (ChatRequest): Contains message, language, history, session_id
-        http_request (Request): FastAPI Request object (reads Authorization header)
+        request: ChatRequest with message, language, session_id
+        http_request: FastAPI Request (reads Authorization header for owner check)
+        db: AsyncSession from Depends(get_db)
 
     Returns:
-        ChatResponse: Contains response content and language used
+        ChatResponse with content, language, session_id
 
     Raises:
-        HTTPException: 500 status code if API call fails
+        HTTPException: 500 if database or OpenAI fails
     """
     try:
-        # Check if user is authenticated as owner (v3)
+        # Step 1: Check if user is authenticated as owner
         is_owner = await get_is_owner(http_request)
 
-        # REDIS USAGE: Get or create session and resolve language preference
-        # This checks Redis cache for the user's language setting
-        session_id, language = await get_or_create_session(
-            session_id=request.session_id,
+        # Step 2: Parse session_id (UUID or None)
+        session_id = None
+        if request.session_id:
+            try:
+                session_id = UUID(request.session_id)
+            except ValueError:
+                session_id = None
+
+        # Step 3: Get or create session in PostgreSQL
+        db_session = await get_or_create_session(
+            db=db,
+            session_id=session_id,
+            is_owner=is_owner,
             language=request.language
         )
+        session_id = db_session.id
 
-        # Build system prompt based on owner/guest status (v3)
-        prompt_template = OWNER_SYSTEM_PROMPT if is_owner else STRANGER_SYSTEM_PROMPT
-        system_prompt = prompt_template.format(language=language)
-
-        # Construct message array: [system_prompt, conversation_history, user_message]
-        messages = [{"role": "system", "content": system_prompt}]
-
-        # Add conversation history to provide context for the AI
-        for msg in request.history:
-            messages.append({"role": msg.role, "content": msg.content})
-
-        # Add current user message as the latest turn
-        messages.append({"role": "user", "content": request.message})
-
-        # Call OpenAI GPT-4o API with conversation context
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=messages,
-            temperature=0.7,  # Balanced creativity (0=deterministic, 1=random)
-            max_tokens=500    # Limit response length
+        # Step 4: Store user message in database
+        await store_message(
+            db=db,
+            session_id=session_id,
+            role="user",
+            content=request.message,
+            language=request.language,
+            modality="text"
         )
 
-        # Extract response text from API result
-        content = response.choices[0].message.content
+        # Step 5: Fetch recent messages for LangChain memory
+        # Owner: 10 messages, Guest: 5 messages
+        limit = 10 if is_owner else 5
+        recent_messages = await get_recent_messages(db, session_id, limit=limit)
 
-        # Return response in the same language (from cache or request)
-        return ChatResponse(content=content, language=language)
+        # Step 6: Build LangChain chain (owner vs guest)
+        if is_owner:
+            chain, llm = build_owner_chain(db, request.language)
+        else:
+            chain, llm = build_stranger_chain(request.language)
+
+        # Step 7: Load memory with recent messages (exclude current user message)
+        for msg in recent_messages:
+            if msg.role == "user":
+                chain.memory.chat_memory.add_user_message(msg.content)
+            else:
+                chain.memory.chat_memory.add_ai_message(msg.content)
+
+        # Step 8: Call LangChain ConversationChain
+        # This orchestrates: prompt building + OpenAI API call + memory update
+        response = await chain.apredict(input=request.message)
+
+        # Step 9: Store assistant response in database
+        await store_message(
+            db=db,
+            session_id=session_id,
+            role="assistant",
+            content=response,
+            language=request.language,
+            modality="text"
+        )
+
+        # Step 10: Return response with session_id for frontend persistence
+        return ChatResponse(
+            content=response,
+            language=request.language,
+            session_id=str(session_id)
+        )
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

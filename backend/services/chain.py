@@ -4,26 +4,26 @@ from langchain.memory import ConversationBufferWindowMemory
 from langchain.chains import LLMChain
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from langchain_community.vectorstores import PGVector
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from config import get_settings
 from db.models import Base
 
 settings = get_settings()
 
 
-def build_owner_chain(db: Session, language: str = "en"):
+def build_owner_chain(db: AsyncSession | None = None, language: str = "en"):
     """
-    Build an LLMChain for owner (Lenoir) with RAG capabilities.
+    Build an LLMChain for owner (Lenoir) with RAG capabilities (v4+).
 
     The owner chain:
     - Uses gpt-4o model for high-quality personalized responses
     - Maintains a conversation buffer of last 10 messages for context
-    - Receives augmented prompts containing retrieved facts from pgvector (RAG)
+    - Receives augmented prompts containing retrieved facts from pgvector (RAG in v5)
     - Responds in the specified language (en/fr/vi)
-    - Stores all messages in database for persistent history
+    - Supports both .predict() (sync) and .apredict() (async) methods
 
     Args:
-        db: SQLAlchemy database session (for potential retriever integration)
+        db: AsyncSession for potential RAG retriever integration (v5+, currently unused)
         language: Response language code (en=English, fr=French, vi=Vietnamese)
 
     Returns:

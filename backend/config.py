@@ -1,5 +1,5 @@
 ﻿"""
-Configuration management for the Lenoir Chatbot API.
+Configuration management for the Lenoir Assistant API.
 
 This module uses Pydantic Settings (v2) to manage environment variables
 from the .env file. All sensitive configuration (API keys, URLs) should
@@ -9,7 +9,11 @@ Environment Variables (from .env):
 - OPENAI_API_KEY: Required. Secret key for OpenAI API access
 - DEBUG: Optional. Enable debug mode (default: false)
 - FRONTEND_URL: Optional. Frontend origin for CORS (default: http://localhost:3000)
-- REDIS_URL: Optional. Redis connection URL (handled separately, not in Settings)
+- REDIS_URL: Optional. Redis connection URL (default: redis://localhost:6379)
+- DATABASE_URL: Required (v4+). PostgreSQL connection string (e.g., postgresql://user:pass@host/dbname)
+- DATABASE_POOL_SIZE: Optional. SQLAlchemy connection pool size (default: 5)
+- DATABASE_MAX_OVERFLOW: Optional. Max overflow connections (default: 10)
+- DATABASE_ECHO: Optional. Log SQL queries (default: false)
 
 Note: .env is git-ignored and should never be committed.
 """
@@ -33,6 +37,11 @@ class Settings(BaseSettings):
                         Valid options: alloy, echo, fable, onyx, nova, shimmer
         OWNER_PIN_HASH (str): bcrypt hash of owner PIN for authentication (v3 feature)
         AUTH_TOKEN_TTL (int): Auth token lifetime in seconds (default: 86400 = 24 hours)
+        REDIS_URL (str): Redis connection string (default: redis://localhost:6379)
+        DATABASE_URL (str): PostgreSQL connection URL (v4+ feature, required for persistence)
+        DATABASE_POOL_SIZE (int): SQLAlchemy connection pool size (default: 5)
+        DATABASE_MAX_OVERFLOW (int): Max overflow connections beyond pool size (default: 10)
+        DATABASE_ECHO (bool): Log all SQL queries to stdout (default: False)
     """
 
     OPENAI_API_KEY: str
@@ -41,6 +50,11 @@ class Settings(BaseSettings):
     tts_voice: str = "nova"  # OpenAI TTS voice for v2 voice output feature
     OWNER_PIN_HASH: str = ""  # bcrypt hash for owner authentication (v3)
     AUTH_TOKEN_TTL: int = 86400  # token lifetime in seconds (24 hours)
+    REDIS_URL: str = "redis://localhost:6379"  # v3 cache layer
+    DATABASE_URL: str = ""  # v4: PostgreSQL connection string (required for persistence)
+    DATABASE_POOL_SIZE: int = 5  # v4: SQLAlchemy connection pool size
+    DATABASE_MAX_OVERFLOW: int = 10  # v4: Max overflow connections
+    DATABASE_ECHO: bool = False  # v4: Log SQL queries for debugging
 
     # Pydantic v2 configuration
     # env_file: Load variables from .env file in this directory

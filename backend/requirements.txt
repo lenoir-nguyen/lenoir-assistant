@@ -10,3 +10,11 @@ pytest==7.4.0
 pytest-asyncio==0.21.0
 httpx==0.24.1
 bcrypt==4.1.2
+
+# v4: PostgreSQL + LangChain + Database Persistence
+sqlalchemy==2.0.28
+psycopg2-binary==2.9.9
+pgvector==0.2.4
+alembic==1.13.1
+langchain==0.1.17
+langchain-openai==0.1.5

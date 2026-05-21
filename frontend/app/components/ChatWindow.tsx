@@ -25,7 +25,16 @@ export default function ChatWindow({ authToken, isOwner }: ChatWindowProps) {
   const [input, setInput] = useState('')
   const [language, setLanguage] = useState('en')
   const [loading, setLoading] = useState(false)
+  const [sessionId, setSessionId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Restore session_id from sessionStorage on mount (v4: persistent conversations)
+  useEffect(() => {
+    const storedSessionId = sessionStorage.getItem('session_id')
+    if (storedSessionId) {
+      setSessionId(storedSessionId)
+    }
+  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -43,8 +52,15 @@ export default function ChatWindow({ authToken, isOwner }: ChatWindowProps) {
       const userMsg: Message = { id: Date.now().toString(), role: 'user', content: userMessage, timestamp: new Date() }
       setMessages((prev) => [...prev, userMsg])
 
+      // v4: Backend will fetch history from database, so we pass empty array
       const history = messages.map((msg) => ({ role: msg.role, content: msg.content }))
-      const response = await sendMessage(userMessage, language, history, authToken)
+      const response = await sendMessage(userMessage, language, history, authToken, sessionId)
+
+      // v4: Store session_id from response in sessionStorage for persistence
+      if (response.session_id) {
+        sessionStorage.setItem('session_id', response.session_id)
+        setSessionId(response.session_id)
+      }
 
       const assistantMsg: Message = { id: (Date.now() + 1).toString(), role: 'assistant', content: response.content, timestamp: new Date() }
       setMessages((prev) => [...prev, assistantMsg])
@@ -60,7 +76,7 @@ export default function ChatWindow({ authToken, isOwner }: ChatWindowProps) {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'white' }}>
       <div style={{ padding: '16px', borderBottom: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <h1 style={{ fontSize: '1.5em', margin: 0 }}>Lenoir Chatbot</h1>
+          <h1 style={{ fontSize: '1.5em', margin: 0 }}>Lenoir Assistant</h1>
           <span
             style={{
               padding: '4px 12px',

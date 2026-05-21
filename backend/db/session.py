@@ -1,25 +1,36 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from config import get_settings
 
 settings = get_settings()
 
-# Create engine with pool settings for Render/Railway
-engine = create_engine(
-    settings.DATABASE_URL,
-    echo=settings.DEBUG,
-    pool_pre_ping=True,  # Verify connections before using
-    pool_size=5,
-    max_overflow=10,
+# Convert DATABASE_URL to async format if needed
+db_url = settings.DATABASE_URL
+if db_url and "postgresql://" in db_url and "postgresql+asyncpg://" not in db_url:
+    db_url = db_url.replace("postgresql://", "postgresql+asyncpg://")
+
+# Create async engine with pool settings for Railway/cloud deployments
+engine = create_async_engine(
+    db_url or "postgresql+asyncpg://localhost/lenoir_chatbot",
+    echo=settings.DATABASE_ECHO,
+    pool_pre_ping=True,
+    pool_size=settings.DATABASE_POOL_SIZE,
+    max_overflow=settings.DATABASE_MAX_OVERFLOW,
+    pool_recycle=3600,
 )
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+AsyncSessionLocal = async_sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False,
+)
 
 
-def get_db() -> Session:
-    """Dependency for FastAPI to inject DB session into routes."""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def get_db():
+    """Async dependency for FastAPI to inject DB session into routes."""
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
