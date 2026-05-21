@@ -1,8 +1,8 @@
-# Lenoir Chatbot Project Rules
+# Lenoir Assistant Project Rules
 
-**Last Updated:** 2026-05-19
+**Last Updated:** 2026-05-20
 **Version:** 1.0.0+
-**Scope:** All development for Lenoir Chatbot
+**Scope:** All development for Lenoir Assistant
 **Reference:** See `../../guidelines/RULES.md` for universal rules
 
 ---
@@ -17,7 +17,7 @@ All universal rules from `guidelines/RULES.md` apply unless superseded here.
 ## Version-Based Development
 
 ### Architecture
-Lenoir Chatbot is built incrementally:
+Lenoir Assistant is built incrementally:
 
 | Version | Focus | Database | Memory | Tests |
 |---------|-------|----------|--------|-------|

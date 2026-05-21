@@ -1,8 +1,8 @@
-﻿# Lenoir Chatbot
+﻿# Lenoir Assistant
 
-A multilingual AI-powered chatbot built with Next.js, FastAPI, and OpenAI's GPT-4o. Supports English, French, and Vietnamese with real-time responses.
+A multilingual AI-powered assistant built with Next.js, FastAPI, and OpenAI's GPT-4o. Supports English, French, and Vietnamese with persistent memory, voice capabilities, and owner/guest modes.
 
-**Live Demo:** [https://lenoir-chatbot.vercel.app](https://lenoir-chatbot.vercel.app)
+**Live Demo:** [https://lenoir-assistant.vercel.app](https://lenoir-assistant.vercel.app)
 
 ## Quick Start
 
@@ -35,20 +35,26 @@ Visit `http://localhost:3000` and start chatting.
 
 ## Documentation
 
+Start here: **[CLAUDE.md](CLAUDE.md)** — AI assistant guidance and project overview
+
+Then explore:
 - **[VERSIONS.md](docs/VERSIONS.md)** — Release notes for each version
 - **[SETUP_GUIDE.md](docs/SETUP_GUIDE.md)** — Detailed setup instructions
-- **[PROJECT_DETAILS.md](docs/PROJECT_DETAILS.md)** — Tech stack and architecture
-- **[IMPLEMENTATION_SUMMARY.md](docs/IMPLEMENTATION_SUMMARY.md)** — How the app works
-- **[PROMPT.md](docs/PROMPT.md)** — Original project prompt
-- **[REUSABLE_SKILLS.md](docs/REUSABLE_SKILLS.md)** — Reusable patterns and best practices
+- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** — Tech stack and system design
+- **[IMPLEMENTATION_SUMMARY.md](docs/IMPLEMENTATION_SUMMARY.md)** — Code details and testing
+- **[PROMPT.md](docs/PROMPT.md)** — Original project requirements
+- **[skills/](skills/)** — Reusable patterns and best practices
 
 ## Project Structure
 
 ```
-lenoir-chatbot/
+lenoir-assistant/
 ├── frontend/          # Next.js 14 application
 ├── backend/           # FastAPI application
-├── docs/              # Documentation
+├── docs/              # Documentation (VERSIONS, SETUP, ARCHITECTURE, etc.)
+├── skills/            # Reusable patterns & best practices
+├── rules/             # Coding standards & conventions
+├── CLAUDE.md          # AI assistant guidance
 └── README.md          # This file
 ```
 

@@ -16,6 +16,7 @@
 **Files Created**:
 - Backend: `main.py`, `config.py`, `routers/chat.py`, `requirements.txt`
 - Frontend: `ChatWindow.tsx`, `MessageBubble.tsx`, `LanguageSelector.tsx`, `api.ts`
+- Docs: `VERSIONS.md`, `SETUP_GUIDE.md`, `ARCHITECTURE.md`, `IMPLEMENTATION_SUMMARY.md`, `PROMPT.md`
 - Config: `package.json`, `tsconfig.json`, `next.config.js`, `.env.local.example`, `.env.example`
 
 **Tech Stack**:
