@@ -19,12 +19,19 @@ Database Flow:
 from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+from langchain_core.messages import AIMessage, HumanMessage
 from uuid import UUID, uuid4
 from config import get_settings
 from db.session import get_db
 from db.utils import get_or_create_session, get_recent_messages, store_message
 from routers.auth import get_is_owner
-from services.chain import build_owner_chain, build_stranger_chain
+from services.chain import (
+    get_llm,
+    build_owner_system_prompt,
+    build_stranger_system_prompt,
+    build_owner_chain_response,
+    build_stranger_chain_response,
+)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 settings = get_settings()
@@ -120,27 +127,33 @@ async def chat_message(
             modality="text"
         )
 
-        # Step 5: Fetch recent messages for LangChain memory
+        # Step 5: Fetch recent messages for context
         # Owner: 10 messages, Guest: 5 messages
         limit = 10 if is_owner else 5
         recent_messages = await get_recent_messages(db, session_id, limit=limit)
 
-        # Step 6: Build LangChain chain (owner vs guest)
-        if is_owner:
-            chain, llm = build_owner_chain(db, request.language)
-        else:
-            chain, llm = build_stranger_chain(request.language)
+        # Step 6: Get LLM instance
+        llm = get_llm()
 
-        # Step 7: Load memory with recent messages (exclude current user message)
+        # Step 7: Convert database messages to LangChain format
+        langchain_messages = []
         for msg in recent_messages:
             if msg.role == "user":
-                chain.memory.chat_memory.add_user_message(msg.content)
-            else:
-                chain.memory.chat_memory.add_ai_message(msg.content)
+                langchain_messages.append(HumanMessage(content=msg.content))
+            elif msg.role == "assistant":
+                langchain_messages.append(AIMessage(content=msg.content))
 
-        # Step 8: Call LangChain ConversationChain
-        # This orchestrates: prompt building + OpenAI API call + memory update
-        response = await chain.apredict(input=request.message)
+        # Step 8: Build system prompt and call LLM
+        if is_owner:
+            system_prompt = build_owner_system_prompt(request.language)
+            response = await build_owner_chain_response(
+                llm, system_prompt, langchain_messages, request.message
+            )
+        else:
+            system_prompt = build_stranger_system_prompt(request.language)
+            response = await build_stranger_chain_response(
+                llm, system_prompt, langchain_messages, request.message
+            )
 
         # Step 9: Store assistant response in database
         await store_message(

@@ -1,117 +1,82 @@
 from langchain_openai import ChatOpenAI
-from langchain_community.chat_message_histories import ChatMessageHistory
-from langchain.memory import ConversationBufferWindowMemory
-from langchain.chains import LLMChain
-from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
-from langchain_community.vectorstores import PGVector
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, BaseMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 from config import get_settings
-from db.models import Base
 
 settings = get_settings()
 
 
-def build_owner_chain(db: AsyncSession | None = None, language: str = "en"):
+async def build_owner_chain_response(
+    llm: ChatOpenAI,
+    system_prompt: str,
+    messages: list[BaseMessage],
+    user_message: str
+) -> str:
     """
-    Build an LLMChain for owner (Lenoir) with RAG capabilities (v4+).
-
-    The owner chain:
-    - Uses gpt-4o model for high-quality personalized responses
-    - Maintains a conversation buffer of last 10 messages for context
-    - Receives augmented prompts containing retrieved facts from pgvector (RAG in v5)
-    - Responds in the specified language (en/fr/vi)
-    - Supports both .predict() (sync) and .apredict() (async) methods
+    Build and execute owner chain response (async).
 
     Args:
-        db: AsyncSession for potential RAG retriever integration (v5+, currently unused)
-        language: Response language code (en=English, fr=French, vi=Vietnamese)
+        llm: ChatOpenAI instance
+        system_prompt: System prompt template
+        messages: Previous messages from database
+        user_message: Current user message
 
     Returns:
-        tuple: (LLMChain, ChatOpenAI LLM) for response generation
+        Response text from GPT-4o
     """
-    # Initialize OpenAI GPT-4o with streaming enabled
-    llm = ChatOpenAI(
-        model="gpt-4o",
-        temperature=0.7,  # Balanced creativity (0.7) and consistency
-        streaming=True,   # Enable token-by-token streaming for real-time response
-        openai_api_key=settings.OPENAI_API_KEY
-    )
+    # Build message list: system + history + current
+    chat_messages = [SystemMessage(content=system_prompt)]
+    chat_messages.extend(messages)
+    chat_messages.append(HumanMessage(content=user_message))
 
-    # Memory manager: maintains conversation context from last 10 messages
-    # This helps LLM understand conversation flow and maintain consistency
-    memory = ConversationBufferWindowMemory(
-        k=10,
-        memory_key="chat_history",
-        return_messages=True
-    )
-
-    # System prompt tailored for owner mode
-    # Instructs LLM to be personal, use context, and respond in user's language
-    system_prompt = f"""You are Lenoir's personal AI assistant. You know Lenoir well and can recall personal facts and past conversations.
-Be warm, attentive, and personalized in your responses. Use the provided context to inform your replies.
-Current language: {language}
-Always respond in {language}."""
-
-    system_message = SystemMessagePromptTemplate.from_template(system_prompt)
-    human_template = "{input}"
-    human_message = HumanMessagePromptTemplate.from_template(human_template)
-
-    chat_prompt = ChatPromptTemplate.from_messages([system_message, human_message])
-
-    # LLMChain: orchestrates LLM invocations with memory and prompt templates
-    # RAG context is injected by chat router before calling apredict() to augment LLM's knowledge
-    chain = LLMChain(llm=llm, prompt=chat_prompt, memory=memory)
-
-    return chain, llm
+    # Call LLM
+    response = await llm.ainvoke(chat_messages)
+    return response.content
 
 
-def build_stranger_chain(language: str = "en"):
+async def build_stranger_chain_response(
+    llm: ChatOpenAI,
+    system_prompt: str,
+    messages: list[BaseMessage],
+    user_message: str
+) -> str:
     """
-    Build an LLMChain for stranger sessions (no personal data, no persistence).
-
-    The stranger chain:
-    - Uses gpt-4o model for friendly, helpful responses
-    - Maintains only 5-message in-memory buffer (not persisted to database)
-    - No access to personal facts or history (RAG disabled)
-    - Responds in specified language
-    - All context lost on page reload (privacy-by-design)
+    Build and execute stranger chain response (async).
 
     Args:
-        language: Response language code (en/fr/vi)
+        llm: ChatOpenAI instance
+        system_prompt: System prompt template
+        messages: Previous messages (ephemeral, not persisted)
+        user_message: Current user message
 
     Returns:
-        tuple: (LLMChain, ChatOpenAI LLM) for response generation
+        Response text from GPT-4o
     """
-    # Initialize GPT-4o with streaming
-    llm = ChatOpenAI(
+    # Same as owner, but messages aren't persisted to DB
+    chat_messages = [SystemMessage(content=system_prompt)]
+    chat_messages.extend(messages)
+    chat_messages.append(HumanMessage(content=user_message))
+
+    response = await llm.ainvoke(chat_messages)
+    return response.content
+
+
+def get_llm() -> ChatOpenAI:
+    """Create OpenAI LLM instance."""
+    return ChatOpenAI(
         model="gpt-4o",
         temperature=0.7,
-        streaming=True,
         openai_api_key=settings.OPENAI_API_KEY
     )
 
-    # Minimal memory: 5-message window, in-memory only, never persisted to database
-    # This ensures strangers cannot infer anything about owner from stored history
-    # Memory is cleared on page reload for strong privacy guarantees
-    memory = ConversationBufferWindowMemory(
-        k=5,
-        memory_key="chat_history",
-        return_messages=True
-    )
 
-    # System prompt for stranger mode: friendly but generic, no personal context
-    system_prompt = f"""You are a friendly and helpful AI assistant. You're speaking with a new visitor.
-Be warm and welcoming, but professional.
-Current language: {language}
+def build_owner_system_prompt(language: str = "en") -> str:
+    """Build system prompt for owner mode."""
+    return f"""You are Lenoir's personal AI assistant. You know Lenoir well and respond in a warm, familiar, and helpful tone.
 Always respond in {language}."""
 
-    system_message = SystemMessagePromptTemplate.from_template(system_prompt)
-    human_template = "{input}"
-    human_message = HumanMessagePromptTemplate.from_template(human_template)
 
-    chat_prompt = ChatPromptTemplate.from_messages([system_message, human_message])
-
-    # LLMChain for stateless conversations: context not stored anywhere
-    chain = LLMChain(llm=llm, prompt=chat_prompt, memory=memory)
-
-    return chain, llm
+def build_stranger_system_prompt(language: str = "en") -> str:
+    """Build system prompt for guest/stranger mode."""
+    return f"""You are a friendly AI assistant on Lenoir's personal chatbot. Be helpful and welcoming to visitors.
+Always respond in {language}."""
