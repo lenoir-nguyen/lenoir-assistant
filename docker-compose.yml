@@ -1,6 +1,25 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lenoir-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: lenoir_user
+      POSTGRES_PASSWORD: lenoir_password
+      POSTGRES_DB: lenoir_chatbot
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lenoir_user -d lenoir_chatbot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lenoir-network
+
   redis:
     image: redis:7-alpine
     container_name: lenoir-redis
@@ -29,9 +48,12 @@ services:
     environment:
       FRONTEND_URL: http://localhost:3000
       REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql+psycopg://lenoir_user:lenoir_password@postgres:5432/lenoir_chatbot
     volumes:
       - ./backend:/app
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
@@ -39,6 +61,7 @@ services:
       - lenoir-network
 
 volumes:
+  postgres_data:
   redis_data:
 
 networks:
