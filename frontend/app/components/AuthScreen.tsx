@@ -3,14 +3,14 @@
 /**
  * AuthScreen Component — Owner Login & Guest Access
  *
- * Two-panel authentication screen shown before the chat:
- * 1. "Continue as Guest" button — immediate access without credentials
- * 2. "Sign in as Owner" form — passphrase + PIN entry for personalized access
+ * Two-step authentication:
+ * 1. Choose: "Login as Owner" or "Continue as Guest"
+ * 2. If Owner: Enter 4-digit PIN
  *
  * Design:
- * - Owner login uses passphrase ("i am lenoir") + 4-digit PIN
- * - Successful login returns bearer token stored in sessionStorage
- * - Guest access requires no credentials, no token needed
+ * - Simplified flow: PIN-only authentication (no passphrase)
+ * - Owner login returns bearer token stored in sessionStorage
+ * - Guest access requires no credentials, goes straight to chat
  * - Error messages shown clearly if login fails
  */
 
@@ -22,7 +22,7 @@ interface AuthScreenProps {
 }
 
 export default function AuthScreen({ onAuth }: AuthScreenProps) {
-  const [passphrase, setPassphrase] = useState('')
+  const [showPinForm, setShowPinForm] = useState(false)
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -31,18 +31,25 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
     onAuth(null, false)
   }
 
+  const handleOwnerClick = () => {
+    setShowPinForm(true)
+    setError(null)
+    setPin('')
+  }
+
   const handleOwnerLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setLoading(true)
 
     try {
-      const result = await login(passphrase, pin)
+      // Send PIN as passphrase (no passphrase field in new auth)
+      const result = await login(pin, '')
       // Store token in sessionStorage for persistence across page refreshes
       sessionStorage.setItem('auth_token', result.token)
       onAuth(result.token, result.is_owner)
     } catch (err) {
-      setError('Incorrect passphrase or PIN')
+      setError('Incorrect PIN')
       console.error('Login error:', err)
     } finally {
       setLoading(false)
@@ -72,141 +79,163 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
         }}
       >
         <h1 style={{ fontSize: '24px', marginBottom: '10px', textAlign: 'center' }}>
-          Lenoir Chatbot
+          Lenoir Assistant
         </h1>
-        <p style={{ textAlign: 'center', color: '#666', marginBottom: '30px', margin: '0 0 30px 0' }}>
-          Choose how you'd like to proceed
-        </p>
 
-        {/* Guest Access Button */}
-        <button
-          type="button"
-          onClick={handleGuestClick}
-          style={{
-            width: '100%',
-            padding: '12px 24px',
-            marginBottom: '20px',
-            backgroundColor: '#6c757d',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            fontSize: '16px',
-            fontWeight: '500',
-            cursor: 'pointer',
-            transition: 'background-color 0.2s',
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#5a6268')}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#6c757d')}
-        >
-          👤 Continue as Guest
-        </button>
+        {!showPinForm ? (
+          <>
+            <p style={{ textAlign: 'center', color: '#666', marginBottom: '30px' }}>
+              Choose how you'd like to proceed
+            </p>
 
-        {/* Owner Login Form */}
-        <form onSubmit={handleOwnerLogin}>
-          <div style={{ marginBottom: '16px' }}>
-            <label
-              style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: '#333',
-              }}
-            >
-              Passphrase
-            </label>
-            <input
-              type="password"
-              placeholder="Enter passphrase"
-              value={passphrase}
-              onChange={(e) => setPassphrase(e.target.value)}
-              disabled={loading}
+            {/* Guest Access Button */}
+            <button
+              type="button"
+              onClick={handleGuestClick}
               style={{
                 width: '100%',
-                padding: '10px 12px',
-                border: '1px solid #ddd',
-                borderRadius: '6px',
-                fontSize: '14px',
-                boxSizing: 'border-box',
-                opacity: loading ? 0.6 : 1,
-              }}
-            />
-          </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <label
-              style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: '#333',
-              }}
-            >
-              PIN
-            </label>
-            <input
-              type="password"
-              placeholder="Enter 4-digit PIN"
-              value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              disabled={loading}
-              maxLength={4}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                border: '1px solid #ddd',
-                borderRadius: '6px',
-                fontSize: '14px',
-                boxSizing: 'border-box',
-                opacity: loading ? 0.6 : 1,
-              }}
-            />
-          </div>
-
-          {error && (
-            <div
-              style={{
-                backgroundColor: '#f8d7da',
-                color: '#721c24',
-                padding: '12px',
-                borderRadius: '6px',
+                padding: '12px 24px',
                 marginBottom: '16px',
-                fontSize: '14px',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '16px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s',
               }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#5a6268')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#6c757d')}
             >
-              {error}
-            </div>
-          )}
+              👤 Continue as Guest
+            </button>
 
-          <button
-            type="submit"
-            disabled={loading || !passphrase || !pin}
-            style={{
-              width: '100%',
-              padding: '12px 24px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '16px',
-              fontWeight: '500',
-              cursor: loading || !passphrase || !pin ? 'not-allowed' : 'pointer',
-              opacity: loading || !passphrase || !pin ? 0.6 : 1,
-              transition: 'background-color 0.2s',
-            }}
-            onMouseEnter={(e) => {
-              if (!loading && passphrase && pin) {
-                e.currentTarget.style.backgroundColor = '#0056b3'
-              }
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#007bff'
-            }}
-          >
-            {loading ? '⏳ Signing in...' : '🔐 Sign in as Owner'}
-          </button>
-        </form>
+            {/* Owner Login Button */}
+            <button
+              type="button"
+              onClick={handleOwnerClick}
+              style={{
+                width: '100%',
+                padding: '12px 24px',
+                backgroundColor: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '16px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0056b3')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#007bff')}
+            >
+              🔐 Login as Owner
+            </button>
+          </>
+        ) : (
+          <>
+            <p style={{ textAlign: 'center', color: '#666', marginBottom: '24px' }}>
+              Enter your 4-digit PIN
+            </p>
+
+            {/* PIN Entry Form */}
+            <form onSubmit={handleOwnerLogin}>
+              <div style={{ marginBottom: '20px' }}>
+                <input
+                  type="password"
+                  placeholder="Enter PIN"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  disabled={loading}
+                  maxLength={4}
+                  autoFocus
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #ddd',
+                    borderRadius: '6px',
+                    fontSize: '16px',
+                    textAlign: 'center',
+                    letterSpacing: '4px',
+                    boxSizing: 'border-box',
+                    opacity: loading ? 0.6 : 1,
+                  }}
+                />
+              </div>
+
+              {error && (
+                <div
+                  style={{
+                    backgroundColor: '#f8d7da',
+                    color: '#721c24',
+                    padding: '12px',
+                    borderRadius: '6px',
+                    marginBottom: '16px',
+                    fontSize: '14px',
+                  }}
+                >
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading || pin.length !== 4}
+                style={{
+                  width: '100%',
+                  padding: '12px 24px',
+                  marginBottom: '12px',
+                  backgroundColor: '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '16px',
+                  fontWeight: '500',
+                  cursor: loading || pin.length !== 4 ? 'not-allowed' : 'pointer',
+                  opacity: loading || pin.length !== 4 ? 0.6 : 1,
+                  transition: 'background-color 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  if (!loading && pin.length === 4) {
+                    e.currentTarget.style.backgroundColor = '#0056b3'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#007bff'
+                }}
+              >
+                {loading ? '⏳ Verifying...' : '✓ Verify PIN'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPinForm(false)
+                  setPin('')
+                  setError(null)
+                }}
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  padding: '12px 24px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '16px',
+                  fontWeight: '500',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  opacity: loading ? 0.6 : 1,
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#5a6268')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#6c757d')}
+              >
+                ← Back
+              </button>
+            </form>
+          </>
+        )}
       </div>
     </div>
   )

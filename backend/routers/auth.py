@@ -13,10 +13,10 @@ Design:
 """
 
 import secrets
+import hashlib
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from config import get_settings
-from services.identity import contains_passphrase, verify_pin
 from cache import cache_set, cache_get, cache_delete
 
 router = APIRouter()
@@ -43,48 +43,41 @@ class LogoutResponse(BaseModel):
 @router.post("/login", response_model=LoginResponse)
 async def login(request: LoginRequest) -> LoginResponse:
     """
-    Authenticate as owner with passphrase + PIN.
+    Authenticate owner with hashed PIN (SHA-256).
 
-    Flow:
-    1. Check if passphrase contains "i am lenoir" (case-insensitive)
-    2. If passphrase matches, verify PIN against OWNER_PIN_HASH (bcrypt)
-    3. If both match, generate a random token and store in Redis (24h TTL)
-    4. Return token to client (client stores in sessionStorage)
+    v4 Flow:
+    1. Hash the provided passphrase with SHA-256
+    2. Compare to OWNER_API_KEY_HASH stored in config
+    3. If match, generate token and store in Redis with TTL
+    4. Return token to client
 
     Args:
-        request: LoginRequest with passphrase and PIN
+        request: LoginRequest with passphrase (PIN as string) and optional pin field
 
     Returns:
         LoginResponse with token and is_owner: true
 
     Raises:
-        HTTPException(401): If passphrase or PIN is incorrect
+        HTTPException(401): If credentials are incorrect
 
     Example:
         POST /auth/login
         {
-            "passphrase": "I am Lenoir and here to help",
-            "pin": "1234"
-        }
-
-        200 OK
-        {
-            "token": "5A8K9...z2Q1x",
-            "is_owner": true
+            "passphrase": "3114",
+            "pin": ""
         }
     """
-    # Step 1: Verify passphrase
-    if not contains_passphrase(request.passphrase):
-        raise HTTPException(status_code=401, detail="Incorrect passphrase")
+    if not settings.OWNER_API_KEY_HASH:
+        raise HTTPException(status_code=500, detail="Authentication not configured")
 
-    # Step 2: Verify PIN
-    if not verify_pin(request.pin):
+    # Hash the provided passphrase and compare to stored hash
+    provided_hash = hashlib.sha256(request.passphrase.encode()).hexdigest()
+
+    if provided_hash != settings.OWNER_API_KEY_HASH:
         raise HTTPException(status_code=401, detail="Incorrect PIN")
 
-    # Step 3: Generate token (random, URL-safe string)
+    # Generate token and store in Redis with TTL
     token = secrets.token_urlsafe(32)
-
-    # Step 4: Store token in Redis with TTL
     await cache_set(
         key=f"auth:{token}",
         value={"is_owner": True},

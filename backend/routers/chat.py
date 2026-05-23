@@ -174,3 +174,44 @@ async def chat_message(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/history/{session_id}", response_model=list[Message])
+async def get_chat_history(
+    session_id: str,
+    http_request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Fetch chat history for a session (v4: Fetch from PostgreSQL).
+
+    This endpoint allows the frontend to retrieve all stored messages
+    for a session after a page refresh. Messages are returned in
+    chronological order (oldest first).
+
+    Args:
+        session_id: UUID of the session to fetch history for
+        http_request: FastAPI Request (for potential future auth checks)
+        db: AsyncSession from Depends(get_db)
+
+    Returns:
+        list[Message]: List of messages in chronological order
+
+    Raises:
+        HTTPException: 400 if session_id is invalid UUID
+                      500 if database query fails
+    """
+    try:
+        # Parse session_id to UUID
+        session_id_uuid = UUID(session_id)
+
+        # Fetch up to 50 messages from this session
+        messages = await get_recent_messages(db, session_id_uuid, limit=50)
+
+        # Convert database models to Pydantic Message models
+        return [Message(role=msg.role, content=msg.content) for msg in messages]
+
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid session_id format")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

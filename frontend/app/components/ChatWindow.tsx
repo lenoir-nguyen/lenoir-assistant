@@ -2,9 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react'
 import MessageBubble from './MessageBubble'
-import LanguageSelector from './LanguageSelector'
 import VoiceButton from './VoiceButton'
-import { sendMessage } from '@/lib/api'
+import { sendMessage, getChatHistory } from '@/lib/api'
 
 interface Message {
   id: string
@@ -16,29 +15,62 @@ interface Message {
 interface ChatWindowProps {
   authToken: string | null
   isOwner: boolean
+  onLogout: () => void
 }
 
-export default function ChatWindow({ authToken, isOwner }: ChatWindowProps) {
+export default function ChatWindow({ authToken, isOwner, onLogout }: ChatWindowProps) {
+  const welcomeMessage = isOwner
+    ? "Welcome back! I'm Lenoir's secret assistant. How can I help you today?"
+    : "Welcome! I'm Lenoir's assistant. (Anonymous mode) How can I help you?"
+
   const [messages, setMessages] = useState<Message[]>([
-    { id: '0', role: 'assistant', content: 'Hello! How can I help you today?', timestamp: new Date() },
+    { id: '0', role: 'assistant', content: welcomeMessage, timestamp: new Date() },
   ])
   const [input, setInput] = useState('')
-  const [language, setLanguage] = useState('en')
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const language = 'en' // LLM automatically detects user language
 
-  // Restore session_id from sessionStorage on mount (v4: persistent conversations)
+  // Restore session_id and chat history from database on mount (v4: persistent conversations)
   useEffect(() => {
     const storedSessionId = sessionStorage.getItem('session_id')
+    const storedToken = sessionStorage.getItem('auth_token')
+
     if (storedSessionId) {
       setSessionId(storedSessionId)
+
+      // Fetch chat history from backend (v4: retrieve from PostgreSQL)
+      getChatHistory(storedSessionId, storedToken)
+        .then((history) => {
+          if (history.length > 0) {
+            // Convert API messages to component Message format
+            const restoredMessages = history.map((msg, index) => ({
+              id: `${index}`,
+              role: msg.role as 'user' | 'assistant',
+              content: msg.content,
+              timestamp: new Date(),
+            }))
+            // Replace initial greeting with actual history
+            setMessages(restoredMessages)
+          }
+        })
+        .catch((error) => {
+          console.error('Failed to fetch chat history:', error)
+          // If fetch fails, keep the initial greeting
+        })
     }
   }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  const handleClear = () => {
+    setMessages([
+      { id: '0', role: 'assistant', content: welcomeMessage, timestamp: new Date() },
+    ])
+  }
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -90,7 +122,52 @@ export default function ChatWindow({ authToken, isOwner }: ChatWindowProps) {
             {isOwner ? '🔐 Owner Mode' : '👤 Guest Mode'}
           </span>
         </div>
-        <LanguageSelector currentLanguage={language} onLanguageChange={setLanguage} />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            onClick={handleClear}
+            disabled={loading}
+            title="Clear conversation and start fresh"
+            style={{
+              padding: '6px 12px',
+              backgroundColor: '#ffc107',
+              color: '#333',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '13px',
+              fontWeight: '500',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.6 : 1,
+              transition: 'background-color 0.2s',
+            }}
+            onMouseEnter={(e) => !loading && (e.currentTarget.style.backgroundColor = '#ffb300')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ffc107')}
+          >
+            🗑️ Clear
+          </button>
+
+          <button
+            onClick={onLogout}
+            disabled={loading}
+            title="Logout and return to login screen"
+            style={{
+              padding: '6px 12px',
+              backgroundColor: '#dc3545',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '13px',
+              fontWeight: '500',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.6 : 1,
+              transition: 'background-color 0.2s',
+            }}
+            onMouseEnter={(e) => !loading && (e.currentTarget.style.backgroundColor = '#c82333')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#dc3545')}
+          >
+            🚪 Logout
+          </button>
+        </div>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column' }}>
@@ -113,7 +190,30 @@ export default function ChatWindow({ authToken, isOwner }: ChatWindowProps) {
             autoFocus
           />
           <VoiceButton onTranscript={setInput} disabled={loading} />
-          <button type="submit" disabled={!input.trim() || loading} style={{ padding: '12px 24px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+          <button
+            type="submit"
+            disabled={!input.trim() || loading}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '16px',
+              fontWeight: '500',
+              cursor: !input.trim() || loading ? 'not-allowed' : 'pointer',
+              opacity: !input.trim() || loading ? 0.6 : 1,
+              transition: 'background-color 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              if (input.trim() && !loading) {
+                e.currentTarget.style.backgroundColor = '#0056b3'
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#007bff'
+            }}
+          >
             Send
           </button>
         </form>

@@ -41,6 +41,17 @@ export default function Home() {
     })
   }
 
+  // Handle logout from ChatWindow - return to auth screen
+  const handleLogout = () => {
+    sessionStorage.removeItem('auth_token')
+    sessionStorage.removeItem('session_id')
+    setAuthState({
+      token: null,
+      isOwner: false,
+      authenticated: false,
+    })
+  }
+
   // Show AuthScreen if not yet authenticated, otherwise show ChatWindow
   if (!authState.authenticated) {
     return (
@@ -52,7 +63,7 @@ export default function Home() {
 
   return (
     <main style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <ChatWindow authToken={authState.token} isOwner={authState.isOwner} />
+      <ChatWindow authToken={authState.token} isOwner={authState.isOwner} onLogout={handleLogout} />
     </main>
   )
 }

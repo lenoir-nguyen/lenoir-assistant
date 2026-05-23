@@ -112,33 +112,41 @@ export default function VoiceButton({ onTranscript, disabled }: VoiceButtonProps
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <button
         type="button"
         onClick={recording ? handleStopRecording : handleStartRecording}
         disabled={disabled}
-        className={`px-3 py-2 rounded font-medium transition ${
-          recording
-            ? 'bg-red-500 hover:bg-red-600 text-white'
-            : 'bg-blue-500 hover:bg-blue-600 text-white disabled:bg-gray-300 disabled:cursor-not-allowed'
-        }`}
+        style={{
+          padding: '12px 24px',
+          backgroundColor: recording ? '#dc3545' : '#007bff',
+          color: 'white',
+          border: 'none',
+          borderRadius: '6px',
+          fontSize: '16px',
+          fontWeight: '500',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          opacity: disabled ? 0.6 : 1,
+          transition: 'background-color 0.2s',
+        }}
+        onMouseEnter={(e) => {
+          if (!disabled) {
+            e.currentTarget.style.backgroundColor = recording ? '#c82333' : '#0056b3'
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = recording ? '#dc3545' : '#007bff'
+        }}
         title={recording ? 'Stop recording' : 'Start recording'}
       >
-        {recording ? (
-          // Stop icon (■)
-          <>
-            ⏹️ Stop Recording
-          </>
-        ) : (
-          // Mic icon (🎤)
-          <>
-            🎤 Record
-          </>
-        )}
+        {recording ? '⏹️ Stop Recording' : '🎤 Record'}
       </button>
 
-      {/* Show error message if transcription failed */}
-      {error && <p className="text-red-500 text-sm">{error}</p>}
+      {error && (
+        <p style={{ color: '#dc3545', fontSize: '14px', margin: 0 }}>
+          {error}
+        </p>
+      )}
     </div>
   )
 }

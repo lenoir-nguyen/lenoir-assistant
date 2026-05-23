@@ -62,6 +62,35 @@ export async function sendMessage(
 }
 
 /**
+ * Fetch chat history for a session (v4 feature).
+ *
+ * When user refreshes the page, the frontend calls this to restore
+ * the conversation history from the database. Messages are returned
+ * in chronological order (oldest first).
+ *
+ * @param sessionId - UUID of the session to fetch
+ * @param authToken - Optional bearer token for owner sessions
+ * @returns Promise with array of messages in chronological order
+ * @throws Error if fetch fails
+ */
+export async function getChatHistory(
+  sessionId: string,
+  authToken: string | null = null
+): Promise<Message[]> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`
+  }
+
+  const response = await fetch(`${API_URL}/chat/history/${sessionId}`, {
+    headers,
+  })
+
+  if (!response.ok) return []
+  return response.json()
+}
+
+/**
  * Convert audio blob to text using OpenAI Whisper.
  *
  * Why separate from sendMessage?

@@ -35,7 +35,7 @@ class Settings(BaseSettings):
         FRONTEND_URL (str): Frontend origin for CORS policy (default: http://localhost:3000)
         tts_voice (str): OpenAI TTS voice for text-to-speech synthesis (default: "nova")
                         Valid options: alloy, echo, fable, onyx, nova, shimmer
-        OWNER_PIN_HASH (str): bcrypt hash of owner PIN for authentication (v3 feature)
+        OWNER_API_KEY_HASH (str): SHA-256 hash of owner PIN for authentication (v4 feature)
         AUTH_TOKEN_TTL (int): Auth token lifetime in seconds (default: 86400 = 24 hours)
         REDIS_URL (str): Redis connection string (default: redis://localhost:6379)
         DATABASE_URL (str): PostgreSQL connection URL (v4+ feature, required for persistence)
@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     FRONTEND_URL: str = "http://localhost:3000"
     tts_voice: str = "nova"  # OpenAI TTS voice for v2 voice output feature
-    OWNER_PIN_HASH: str = ""  # bcrypt hash for owner authentication (v3)
+    OWNER_API_KEY_HASH: str = ""  # SHA-256 hash of owner PIN for authentication (v4)
     AUTH_TOKEN_TTL: int = 86400  # token lifetime in seconds (24 hours)
     REDIS_URL: str = "redis://localhost:6379"  # v3 cache layer
     DATABASE_URL: str = ""  # v4: PostgreSQL connection string (required for persistence)
