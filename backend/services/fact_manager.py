@@ -13,21 +13,19 @@ class FactManager:
     FACTS_INDEX_PREFIX = "facts:session"
 
     @staticmethod
-    async def cache_fact(session_id: str, fact: Fact, ttl: int | None = None) -> bool:
+    async def cache_fact(session_id: str, fact: Fact, ttl: int = 86400) -> bool:
         """
         Cache a fact in Redis with TTL.
 
         Args:
             session_id: Session UUID
             fact: Fact object to cache
-            ttl: Time to live in seconds (default: FACT_CACHE_TTL from config)
+            ttl: Time to live in seconds (default: 86400 = 24h for owners)
 
         Returns:
             True if cached successfully, False otherwise
         """
         try:
-            if ttl is None:
-                ttl = settings.FACT_CACHE_TTL
 
             # Key: facts:{session_id}:{fact_id}
             fact_key = f"{FactManager.FACT_PREFIX}:{session_id}:{fact.id}"
