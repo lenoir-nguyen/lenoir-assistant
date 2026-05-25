@@ -82,12 +82,30 @@ export async function getChatHistory(
     headers['Authorization'] = `Bearer ${authToken}`
   }
 
-  const response = await fetch(`${API_URL}/chat/history/${sessionId}`, {
-    headers,
-  })
+  try {
+    const url = `${API_URL}/chat/history/${sessionId}`
+    console.log(`[getChatHistory] Fetching from: ${url}`)
+    console.log(`[getChatHistory] Auth token present: ${!!authToken}`)
 
-  if (!response.ok) return []
-  return response.json()
+    const response = await fetch(url, {
+      headers,
+    })
+
+    console.log(`[getChatHistory] Response status: ${response.status}`)
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`[getChatHistory] Error response:`, errorText)
+      return []
+    }
+
+    const messages = await response.json()
+    console.log(`[getChatHistory] Retrieved ${messages.length} messages`)
+    return messages
+  } catch (error) {
+    console.error(`[getChatHistory] Fetch error:`, error)
+    return []
+  }
 }
 
 /**

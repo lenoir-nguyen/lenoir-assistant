@@ -37,12 +37,17 @@ export default function ChatWindow({ authToken, isOwner, onLogout }: ChatWindowP
     const storedSessionId = sessionStorage.getItem('session_id')
     const storedToken = sessionStorage.getItem('auth_token')
 
+    console.log('[ChatWindow] Mount: session_id =', storedSessionId)
+    console.log('[ChatWindow] Mount: auth_token =', !!storedToken)
+
     if (storedSessionId) {
+      console.log('[ChatWindow] Restoring session:', storedSessionId)
       setSessionId(storedSessionId)
 
       // Fetch chat history from backend (v4: retrieve from PostgreSQL)
       getChatHistory(storedSessionId, storedToken)
         .then((history) => {
+          console.log('[ChatWindow] Got chat history:', history.length, 'messages')
           if (history.length > 0) {
             // Convert API messages to component Message format
             const restoredMessages = history.map((msg, index) => ({
@@ -53,12 +58,15 @@ export default function ChatWindow({ authToken, isOwner, onLogout }: ChatWindowP
             }))
             // Replace initial greeting with actual history
             setMessages(restoredMessages)
+            console.log('[ChatWindow] Messages restored:', restoredMessages.length)
           }
         })
         .catch((error) => {
-          console.error('Failed to fetch chat history:', error)
+          console.error('[ChatWindow] Failed to fetch chat history:', error)
           // If fetch fails, keep the initial greeting
         })
+    } else {
+      console.log('[ChatWindow] No session_id in storage, showing welcome message')
     }
   }, [])
 
