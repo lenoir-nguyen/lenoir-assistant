@@ -17,15 +17,26 @@ The backend is a stateless FastAPI server that receives chat messages, sends the
 
 **CORS Security**: Restricts API calls to frontend URL only, preventing unauthorized cross-origin requests
 
-### File: `config.py`
+### File: `config.py` (v4 with v4.1 Fact Caching)
 
 **Purpose**: Centralized settings management using Pydantic
 
-**Key Code Sections**:
-- `Settings` class inheriting from BaseSettings
-- `OPENAI_API_KEY` (required) - fetched from `.env`
-- `DEBUG` (optional, default False) - enables verbose logging
-- `FRONTEND_URL` (optional, default localhost) - used for CORS
+**Key Settings** (v4+):
+- `OPENAI_API_KEY` (required) - OpenAI API key
+- `DEBUG` (optional, default False) - verbose logging
+- `FRONTEND_URL` (optional) - CORS configuration
+- `DATABASE_URL` (v4) - PostgreSQL connection string
+- `REDIS_URL` (v4) - Redis connection string
+- `AUTH_TOKEN_TTL` (v4) - Token expiration (24h default)
+- `OWNER_PIN_HASH` (v4) - Hashed owner PIN
+
+**v4.1 Fact Caching Settings**:
+```python
+FACT_CACHE_TTL_OWNER: int = 86400  # 24 hours for owners
+FACT_CACHE_TTL_GUEST: int = 3600   # 1 hour for guests
+FACT_CACHE_MAX_ITEMS: int = 50     # Max facts per session
+FACT_EXTRACTION_ENABLED: bool = True  # Can be disabled globally
+```
 
 **How it works**:
 ```python
@@ -35,6 +46,11 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     DEBUG: bool = False
     FRONTEND_URL: str = "http://localhost:3000"
+    DATABASE_URL: str
+    REDIS_URL: str
+    FACT_CACHE_TTL_OWNER: int = 86400
+    FACT_CACHE_TTL_GUEST: int = 3600
+    FACT_EXTRACTION_ENABLED: bool = True
     
     class Config:
         env_file = ".env"
@@ -74,11 +90,11 @@ class SpeakRequest(BaseModel):
 - Audio streaming allows immediate playback without buffering full file
 - No session storage — stateless like v1
 
-### File: `routers/chat.py`
+### File: `routers/chat.py` (v4 with v4.1 Fact Caching)
 
-**Purpose**: Chat message endpoint with OpenAI integration
+**Purpose**: Chat message endpoint with OpenAI integration, database persistence, and fact caching
 
-**Data Models**:
+**Data Models** (v4+):
 ```python
 class Message(BaseModel):
     role: Literal["user", "assistant"]
@@ -87,31 +103,129 @@ class Message(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     language: str  # "en", "fr", "vi"
-    history: List[Message]
+    session_id: str | None = None  # v4: session UUID for persistence
 
 class ChatResponse(BaseModel):
     content: str
     language: str
+    session_id: str  # v4: return session for frontend persistence
 ```
 
-**POST /chat/message Endpoint**:
-1. Receive `ChatRequest` with user message, language, and history
-2. Build system prompt with language instruction
-3. Convert history to OpenAI message format
-4. Call `client.chat.completions.create(model="gpt-4o", temperature=0.7, messages=[...])`
-5. Extract response content
-6. Return `ChatResponse` with content and language
+**POST /chat/message Endpoint** (v4 Workflow):
+1. Check if user is authenticated as owner (bearer token)
+2. Get or create session in PostgreSQL (or use existing session_id)
+3. Store user message in database
+4. **[v4.1] Extract facts** from user message using pattern matching
+5. **[v4.1] Cache facts** in Redis with role-based TTL (24h owner, 1h guest)
+6. **[v4.1] Store owner facts** permanently in PostgreSQL
+7. Fetch recent message history from database
+8. **[v4.1] Retrieve cached facts** for inclusion in system prompt
+9. Build LangChain conversation with context
+10. Call `client.chat.completions.create()` with facts in system prompt
+11. Store assistant response in database
+12. Return `ChatResponse` with session_id for frontend
 
-**System Prompt Template**:
+**System Prompt** (v4.1 with facts):
 ```
-You are a friendly and helpful AI assistant.
-Always respond in {language}.
+## Remembered Facts
+**Personal Preference:**
+- My birthday is May 15
+- My favorite food is pizza
+
+[rest of system prompt...]
 ```
 
-**Error Handling**:
-- Missing message/language: Returns 400 error
-- OpenAI API error: Returns 500 with error details
-- Invalid history: Returns 400
+**Error Handling** (v4+):
+- Session management errors: 500 with details
+- OpenAI API error: 500 with error details
+- Database errors: gracefully logged, continues if non-critical
+- Redis fact caching errors: non-critical (fact still cached), logged as warning
+
+### File: `services/fact_extractor.py` (v4.1)
+
+**Purpose**: Extract facts from user messages using pattern-based regex matching
+
+**Data Model**:
+```python
+@dataclass
+class Fact:
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    category: str  # "event", "personal_preference", "contact", "habit"
+    content: str   # Extracted fact text
+    raw_statement: str  # Original user text
+    created_at: datetime = field(default_factory=datetime.utcnow)
+```
+
+**Pattern Examples**:
+```python
+# "My birthday is May 15" → category: "event", content: "My birthday is May 15"
+# "I like pizza" → category: "personal_preference", content: "I like pizza"
+# "I work at Acme Corp" → category: "contact", content: "I work at Acme Corp"
+# "My phone is 555-1234" → category: "contact", content: "My phone is 555-1234"
+```
+
+**`extract_facts(user_message: str)` Function**:
+1. Iterate through regex patterns (birthday, preferences, contact, work, hobbies, etc.)
+2. Find all matches in user message
+3. Categorize each match (event, personal_preference, contact, habit)
+4. Create `Fact` objects with category, content, and raw statement
+5. Return list of `Fact` objects
+6. Gracefully ignore non-matching messages (no error if no facts found)
+
+**Design Decision**: Uses regex patterns (no LLM call) for:
+- Speed: ~10-50ms per message
+- Cost: No additional API calls
+- Reliability: Patterns are explicit, no hallucinations
+
+### File: `services/fact_manager.py` (v4.1)
+
+**Purpose**: Manage Redis caching and database persistence of facts
+
+**Key Functions**:
+
+`cache_fact(session_id: str, fact: Fact, ttl: int = 86400) -> bool`:
+- Store fact in Redis with TTL (default 24h)
+- Key pattern: `facts:{session_id}:{fact_id}`
+- Maintain index: `facts:session:{session_id}` → set of fact IDs
+- Try-except blocks wrap all Redis operations (non-critical if index fails)
+- Returns True if cached, False if error
+
+`get_cached_facts(session_id: str) -> list[Fact]`:
+- Retrieve all cached facts for session
+- Query index `facts:session:{session_id}` to get fact IDs
+- Fetch each fact from `facts:{session_id}:{fact_id}`
+- Deserialize back to `Fact` objects
+- Returns list (empty if none found)
+
+`clear_session_facts(session_id: str) -> bool`:
+- Delete all facts for session (on logout or session clear)
+- Delete individual facts and the index
+- Try-except blocks prevent crashes if Redis unavailable
+- Returns True if successful, False otherwise
+
+`format_facts_for_context(facts: list[Fact]) -> str`:
+- Format facts into markdown string for system prompt
+- Group by category with headers
+- Example output:
+```
+## Remembered Facts
+
+**Contact:**
+- I work at Acme Corp
+- My phone is 555-1234
+
+**Personal Preference:**
+- I like pizza
+- My favorite color is blue
+
+Use these facts to provide personalized responses.
+```
+
+**Design Decisions**:
+- Redis for fast short-term caching (1-5ms operations)
+- Role-based TTL: Owners 24h (86400s), Guests 1h (3600s)
+- Index tracking is non-critical (try-except prevents crashes)
+- PostgreSQL only for owners (permanent storage via `store_personal_fact`)
 
 ---
 
@@ -432,6 +546,67 @@ curl -X POST http://localhost:8000/chat/message \
    - [ ] Test message history persists during session
    - [ ] Reload page - history should clear (v1 design)
    - [ ] Test with long message to verify scrolling
+
+### Fact Caching Testing (v4.1)
+
+**Unit Tests** (`backend/tests/test_fact_extractor.py`):
+- Fact extraction from various message types
+- Pattern matching for birthdays, preferences, contacts, work
+- Multiple facts in single message
+- Duplicate prevention
+- Empty/invalid input handling
+
+**Run tests**:
+```bash
+cd backend
+pytest tests/test_fact_extractor.py -v
+```
+
+**Integration Tests** (`backend/tests/test_fact_manager.py`):
+- Redis caching and retrieval
+- TTL expiration behavior
+- Owner vs Guest fact persistence
+- Session isolation (facts don't leak between sessions)
+
+**E2E Test** (`frontend/tests/test-fact-caching.js`):
+Comprehensive Playwright test verifying:
+
+**Owner Mode**:
+- [ ] Login as owner (PIN 9999)
+- [ ] Send: "My birthday is May 15"
+- [ ] Bot remembers and responds with fact
+- [ ] Send: "What is my birthday?" → Bot answers "May 15"
+- [ ] Refresh page → Facts persist (24h cache + DB)
+
+**Guest Mode**:
+- [ ] Continue as guest (no auth)
+- [ ] Send: "I like coffee"
+- [ ] Bot remembers fact in conversation
+- [ ] Send: "What do I like?" → Bot answers "coffee"
+- [ ] Verify guest facts NOT visible in owner's session (isolation)
+
+**Run E2E test**:
+```bash
+cd frontend/tests
+node test-fact-caching.js
+```
+
+Expected output:
+```
+✅ ALL TESTS PASSED - Fact caching working correctly!
+
+Owner Mode (24h Redis + Permanent DB):
+  ✓ Facts extracted from messages
+  ✓ Bot remembers birthday fact
+  ✓ Bot remembers food preference
+  ✓ Facts persist after page refresh
+
+Guest Mode (1h Redis only):
+  ✓ Facts extracted from messages
+  ✓ Bot remembers coffee preference
+  ✓ Bot remembers work location
+  ✓ Facts NOT visible in other sessions
+```
 
 ### Voice Integration Testing (v2)
 
