@@ -209,7 +209,12 @@ async def chat_message(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        error_msg = str(e)
+        tb = traceback.format_exc()
+        print(f"[chat_message] FATAL ERROR: {error_msg}")
+        print(f"[chat_message] Traceback:\n{tb}")
+        raise HTTPException(status_code=500, detail=f"Error: {error_msg}")
 
 
 @router.get("/history/{session_id}", response_model=list[Message])

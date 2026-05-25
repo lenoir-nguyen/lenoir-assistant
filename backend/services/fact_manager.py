@@ -2,6 +2,7 @@ import json
 from services.fact_extractor import Fact
 from cache import cache_get, cache_set, cache_delete, redis_client
 from config import get_settings
+import traceback
 
 settings = get_settings()
 
@@ -51,6 +52,7 @@ class FactManager:
 
         except Exception as e:
             print(f"[FactManager] Error caching fact: {str(e)}")
+            print(f"[FactManager] Traceback: {traceback.format_exc()}")
             return False
 
     @staticmethod
