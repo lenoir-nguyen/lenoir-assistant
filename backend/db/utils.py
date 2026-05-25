@@ -1,15 +1,20 @@
 """
-Database utility functions for v4 persistent conversation storage.
+Database utility functions for v4+ persistent conversation storage and v5 RAG.
 
-Provides helpers for session management, message retrieval, and storage.
-Used by routers/chat.py to abstract database operations.
+Provides helpers for:
+- Session management (v4)
+- Message retrieval and storage (v4)
+- Fact persistence (v4.1)
+- Document management (v5)
+
+Used by routers to abstract database operations.
 """
 
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from datetime import datetime
-from db.models import Session as SessionModel, Message, PersonalFact
+from db.models import Session as SessionModel, Message, PersonalFact, Document, DocumentChunk
 from services.fact_extractor import Fact
 
 
@@ -144,3 +149,130 @@ async def store_personal_fact(
     await db.commit()
     await db.refresh(personal_fact)
     return personal_fact
+
+
+# ============================================================================
+# Document Management Utilities (v5 RAG)
+# ============================================================================
+
+async def get_document_by_id(
+    db: AsyncSession,
+    document_id: UUID
+) -> Document | None:
+    """
+    Fetch a document by ID.
+
+    Args:
+        db: Async database session
+        document_id: UUID of document
+
+    Returns:
+        Document object or None if not found
+    """
+    stmt = select(Document).filter(Document.id == document_id)
+    result = await db.execute(stmt)
+    return result.scalars().first()
+
+
+async def get_all_documents(db: AsyncSession) -> list[Document]:
+    """
+    Get all documents, ordered by upload date (newest first).
+
+    Args:
+        db: Async database session
+
+    Returns:
+        List of all Document objects
+    """
+    stmt = select(Document).order_by(Document.uploaded_at.desc())
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+
+async def get_document_chunks(
+    db: AsyncSession,
+    document_id: UUID
+) -> list[DocumentChunk]:
+    """
+    Get all chunks for a specific document.
+
+    Args:
+        db: Async database session
+        document_id: UUID of document
+
+    Returns:
+        List of DocumentChunk objects for this document
+    """
+    stmt = (
+        select(DocumentChunk)
+        .filter(
+            DocumentChunk.source_type == 'document',
+            DocumentChunk.source_id == document_id
+        )
+        .order_by(DocumentChunk.created_at)
+    )
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+
+async def get_document_chunk_count(
+    db: AsyncSession,
+    document_id: UUID
+) -> int:
+    """
+    Get the number of chunks for a document.
+
+    Args:
+        db: Async database session
+        document_id: UUID of document
+
+    Returns:
+        Number of chunks
+    """
+    stmt = (
+        select(DocumentChunk)
+        .filter(
+            DocumentChunk.source_type == 'document',
+            DocumentChunk.source_id == document_id
+        )
+    )
+    result = await db.execute(stmt)
+    return len(result.scalars().all())
+
+
+async def delete_document_and_chunks(
+    db: AsyncSession,
+    document_id: UUID
+) -> int:
+    """
+    Delete a document and cascade-delete all associated chunks.
+
+    Args:
+        db: Async database session
+        document_id: UUID of document to delete
+
+    Returns:
+        Number of chunks deleted
+
+    Raises:
+        ValueError: If document not found
+    """
+    # Get document to verify it exists
+    document = await get_document_by_id(db, document_id)
+    if not document:
+        raise ValueError(f"Document not found: {document_id}")
+
+    # Delete all chunks for this document
+    chunk_stmt = delete(DocumentChunk).filter(
+        DocumentChunk.source_type == 'document',
+        DocumentChunk.source_id == document_id
+    )
+    chunk_result = await db.execute(chunk_stmt)
+    chunk_count = chunk_result.rowcount
+
+    # Delete document
+    doc_stmt = delete(Document).filter(Document.id == document_id)
+    await db.execute(doc_stmt)
+    await db.commit()
+
+    return chunk_count
