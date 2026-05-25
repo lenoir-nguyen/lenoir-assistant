@@ -44,9 +44,13 @@ class FactManager:
             await cache_set(fact_key, fact_data, ttl)
 
             # Add to index: facts:session:{session_id} → set of fact IDs
-            index_key = f"{FactManager.FACTS_INDEX_PREFIX}:{session_id}"
-            redis_client.sadd(index_key, fact.id)
-            redis_client.expire(index_key, ttl)
+            try:
+                index_key = f"{FactManager.FACTS_INDEX_PREFIX}:{session_id}"
+                redis_client.sadd(index_key, fact.id)
+                redis_client.expire(index_key, ttl)
+            except Exception as idx_error:
+                # Index error is non-critical, fact is still cached
+                print(f"[FactManager] Warning: Failed to update index: {str(idx_error)}")
 
             return True
 
@@ -69,7 +73,11 @@ class FactManager:
         try:
             # Get all fact IDs from index
             index_key = f"{FactManager.FACTS_INDEX_PREFIX}:{session_id}"
-            fact_ids = redis_client.smembers(index_key)
+            try:
+                fact_ids = redis_client.smembers(index_key)
+            except Exception as redis_error:
+                print(f"[FactManager] Warning: Redis smembers failed: {str(redis_error)}")
+                fact_ids = []
 
             if not fact_ids:
                 return []
@@ -113,7 +121,11 @@ class FactManager:
         try:
             # Get all fact IDs
             index_key = f"{FactManager.FACTS_INDEX_PREFIX}:{session_id}"
-            fact_ids = redis_client.smembers(index_key)
+            try:
+                fact_ids = redis_client.smembers(index_key)
+            except Exception as redis_error:
+                print(f"[FactManager] Warning: Redis smembers in clear failed: {str(redis_error)}")
+                fact_ids = []
 
             # Delete each fact
             for fact_id in fact_ids:
@@ -121,7 +133,10 @@ class FactManager:
                 await cache_delete(fact_key)
 
             # Delete the index
-            redis_client.delete(index_key)
+            try:
+                redis_client.delete(index_key)
+            except Exception as redis_error:
+                print(f"[FactManager] Warning: Redis delete index failed: {str(redis_error)}")
 
             return True
 
