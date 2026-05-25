@@ -200,7 +200,7 @@ REDIS_URL=redis://...
 **Features**:
 - **Short-term fact caching** — Bot remembers facts you mention (e.g., "My birthday is May 15")
 - **Pattern-based extraction** — Automatically detects and extracts facts from messages
-- **Redis caching** — Facts cached with 8-hour TTL (configurable)
+- **Redis caching** — Facts cached with 24h (owners) / 1h (guests)
 - **Long-term persistence** — Owner facts stored in PostgreSQL (permanent)
 - **Contextual responses** — Facts included in system prompt for personalized answers
 - **Smart categorization** — Facts organized as events, preferences, contacts, habits
@@ -220,7 +220,8 @@ REDIS_URL=redis://...
 - `backend/tests/test_fact_extractor.py` — Unit tests
 
 **Configuration**:
-- `FACT_CACHE_TTL=28800` (8 hours, configurable)
+- `FACT_CACHE_TTL_OWNER=86400` (24 hours for owners)
+- `FACT_CACHE_TTL_GUEST=3600` (1 hour for guests)
 - `FACT_CACHE_MAX_ITEMS=50` (max facts per session)
 - `FACT_EXTRACTION_ENABLED=true` (can be disabled)
 
@@ -243,9 +244,17 @@ REDIS_URL=redis://...
 
 **Tech Stack**:
 - Regex patterns for fact detection (no LLM call = fast)
-- Redis for short-term caching (8-hour TTL)
-- PostgreSQL for long-term persistence (owners)
+- Redis for short-term caching (24h owners, 1h guests)
+- PostgreSQL for long-term persistence (owners only)
 - Pattern categories: event, personal_preference, contact, habit
+
+**Role-Based Behavior**:
+| Feature | Owner | Guest |
+|---------|-------|-------|
+| Extract Facts | ✓ | ✓ |
+| Cache in Redis | 24 hours | 1 hour |
+| Store in Database | ✓ Permanent | ✗ |
+| Fact Availability | Next login | Until expiry |
 
 **Performance**:
 - Fact extraction: ~10-50ms per message

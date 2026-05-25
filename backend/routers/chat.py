@@ -134,9 +134,11 @@ async def chat_message(
         if settings.FACT_EXTRACTION_ENABLED:
             try:
                 facts = await FactExtractor.extract_facts(request.message)
+                # Use 24 hours for owners, 1 hour for guests
+                ttl = settings.FACT_CACHE_TTL_OWNER if is_owner else settings.FACT_CACHE_TTL_GUEST
                 for fact in facts:
-                    # Cache in Redis
-                    await FactManager.cache_fact(str(session_id), fact, settings.FACT_CACHE_TTL)
+                    # Cache in Redis with role-based TTL
+                    await FactManager.cache_fact(str(session_id), fact, ttl)
                     # Store in PostgreSQL for owners (long-term persistence)
                     if is_owner:
                         await store_personal_fact(db, fact)
