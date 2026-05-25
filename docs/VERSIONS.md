@@ -115,34 +115,92 @@
 
 ---
 
-## v4.0.0 — LangChain & Database (Planned)
+## v4.0.0 — Persistent Conversations & Database (2026-05-25)
 
-**Planned Features**:
-- Passphrase: "I am Lenoir"
-- PIN protection with bcrypt hashing
-- Owner vs. Stranger conversation modes
-- Session management
+**Status**: ✅ Complete & Live in Production
 
----
+**Frontend URL**: https://lenoir-chatbot.vercel.app  
+**Backend URL**: https://lenoir-chatbot-production.up.railway.app  
+**GitHub**: https://github.com/lenoir-nguyen/lenoir-assistant
 
-## v4.0.0 — LangChain & Database (Planned)
+**Major Features**:
+- **PostgreSQL Persistence** — Conversations stored in production database
+- **Session Management** — Unique session IDs, message history retrieval
+- **Chat History Restoration** — Messages persist across page refreshes
+- **Redis Caching** — Fast session lookups and token management
+- **SHA-256 Authentication** — PIN-based owner login (secure hashing)
+- **Multi-User Support** — Owner vs Guest modes with different persistence
+- **LangChain Integration** — GPT-4o with conversation context
 
-**Planned Features**:
-- PostgreSQL integration via Railway
-- Persistent conversation memory
-- LangChain orchestration
-- ConversationBufferWindowMemory (last 10 messages for owner, 5 for stranger)
-- System prompts with personalization
+**Database Schema**:
+- `sessions` table: UUID primary key, is_owner flag, language, created_at timestamp
+- `messages` table: UUID primary key, session_id (FK), role, content, timestamps, indexed
+- Indexes on session_id and created_at for fast retrieval
+
+**API Endpoints**:
+- `POST /auth/login` — PIN authentication (passphrase + PIN → token)
+- `POST /chat/message` — Send message, get response, return session_id
+- `GET /chat/history/{session_id}` — Retrieve complete conversation history
+- `POST /voice/transcribe` — Speech-to-text transcription
+- `POST /voice/speak` — Text-to-speech audio generation
+
+**Infrastructure**:
+- **Database**: PostgreSQL on Railway (with pgvector for future RAG)
+- **Cache**: Redis on Railway for session tokens
+- **Frontend**: Vercel with Next.js 14 (auto-deploy from GitHub)
+- **Backend**: Railway with FastAPI (auto-deploy from GitHub)
+- **AI**: OpenAI GPT-4o, Whisper STT, TTS
+
+**Authentication**:
+- Owner PIN: 9999 → SHA-256 hash: `888df25ae35772424a560c7152a1de794440e0ea5cfee62828333a456a506e05`
+- Token TTL: 24 hours (86400 seconds)
+- Bearer token in Authorization header
+- Guest mode: No auth required, ephemeral sessions
+
+**Testing**:
+- ✅ All features verified in production
+- ✅ Chat persistence working (tested with Playwright)
+- ✅ Login/logout working
+- ✅ Guest mode working
+- ✅ Health endpoint: `{"status":"ok","redis":"connected","database":"connected"}`
+
+**Environment Variables**:
+```
+OPENAI_API_KEY=sk-proj-...
+DEBUG=false
+FRONTEND_URL=https://lenoir-chatbot.vercel.app
+OWNER_API_KEY_HASH=888df25ae35772424a560c7152a1de794440e0ea5cfee62828333a456a506e05
+AUTH_TOKEN_TTL=86400
+DATABASE_URL=postgresql://...
+DATABASE_POOL_SIZE=5
+DATABASE_MAX_OVERFLOW=10
+REDIS_URL=redis://...
+```
+
+**Key Changes from v3**:
+- Switched from bcrypt to SHA-256 for PIN hashing (simpler, faster)
+- Added PostgreSQL for message persistence (instead of Redis-only)
+- Session IDs now generated per conversation (not per session)
+- Chat history automatically retrieved on page refresh
+- Owner and Guest conversations stored separately
+
+**Tech Stack**:
+- FastAPI + async SQLAlchemy 2.0
+- Next.js 14 + React 18 + TypeScript
+- PostgreSQL + Redis + OpenAI GPT-4o
+- Alembic for database migrations
+- Playwright for automated testing
 
 ---
 
 ## v5.0.0 — RAG System (Planned)
 
 **Planned Features**:
-- pgvector for semantic search
-- OpenAI embeddings
+- pgvector for semantic search and embeddings
+- OpenAI embeddings integration
 - Personal facts knowledge base
-- Context-aware responses
-- Retrieval-augmented generation
+- Document upload and ingestion
+- Context-aware retrieval-augmented generation
+- Advanced conversation tagging and search
 
 ---

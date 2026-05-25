@@ -2,7 +2,12 @@
 
 A multilingual AI-powered assistant built with Next.js, FastAPI, and OpenAI's GPT-4o. Supports English, French, and Vietnamese with persistent memory, voice capabilities, and owner/guest modes.
 
-**Live Demo:** [https://lenoir-assistant.vercel.app](https://lenoir-assistant.vercel.app)
+**Live Demo:** [https://lenoir-chatbot.vercel.app](https://lenoir-chatbot.vercel.app)
+
+**Production URLs:**
+- **Frontend:** https://lenoir-chatbot.vercel.app
+- **Backend API:** https://lenoir-chatbot-production.up.railway.app
+- **GitHub:** https://github.com/lenoir-nguyen/lenoir-assistant
 
 ## Quick Start
 
@@ -65,13 +70,30 @@ lenoir-assistant/
 - **API:** OpenAI GPT-4o
 - **Deployment:** Vercel (frontend), Railway (backend)
 
-## Features (v1)
+## Features (v4 — Latest)
 
+**Core Chat:**
 - ✅ Real-time chat with GPT-4o
 - ✅ Multilingual support (English, French, Vietnamese)
 - ✅ Language switching mid-conversation
-- ✅ Conversation history
 - ✅ Responsive design
+
+**Persistence & Memory (v4):**
+- ✅ **Persistent conversations** — Chat history stored in PostgreSQL
+- ✅ **Session-based memory** — Conversations persist across page refreshes
+- ✅ **Redis caching** — Fast response times and session management
+- ✅ **Owner authentication** — PIN-based login (SHA-256 hashing)
+- ✅ **Guest mode** — No login required, ephemeral sessions
+
+**Voice & Accessibility:**
+- ✅ Voice input — Record and transcribe with OpenAI Whisper
+- ✅ Text-to-speech — Hear responses with natural audio
+- ✅ Microphone recording — WebM format support
+
+**Multi-User:**
+- ✅ Owner mode — Full features with persistent memory
+- ✅ Guest mode — Limited features, no persistence
+- ✅ Session isolation — Each user has separate conversation history
 
 ## License
 

@@ -80,7 +80,7 @@ const { chromium } = require('playwright');
     await clearBtn.click();
     await page.waitForTimeout(1000);
 
-    const welcomeMsg = await page.locator('text=/Welcome|assistant/i').isVisible();
+    const welcomeMsg = await page.locator('text="Welcome back"').isVisible().catch(() => false);
     console.log(`   Clear button works: ${welcomeMsg ? '✓' : '✗'}\n`);
 
     // Step 8: Test Logout button
