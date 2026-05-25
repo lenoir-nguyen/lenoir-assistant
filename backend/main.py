@@ -1,5 +1,5 @@
 """
-Lenoir Assistant API - Main Application Entry Point (v4)
+Lenoir Assistant API - Main Application Entry Point (v5)
 
 This is the FastAPI application factory and configuration. It handles:
 - CORS middleware for cross-origin requests from frontend
@@ -7,8 +7,8 @@ This is the FastAPI application factory and configuration. It handles:
 - Health check endpoint with Redis + PostgreSQL status monitoring
 
 Configuration:
-- Version: 4.0.0 (LangChain + PostgreSQL persistence)
-- Base URL: /chat (all chat endpoints prefixed with /chat)
+- Version: 5.0.0 (RAG system with pgvector + document management)
+- Base URL: /chat (all chat endpoints prefixed with /chat), /documents (RAG)
 - Health check: /health (returns API, cache, and database status)
 """
 
@@ -17,12 +17,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from config import get_settings
-from routers import chat, voice, auth
+from routers import chat, voice, auth, documents
 from cache import is_redis_available
 from db.session import get_db
 
 settings = get_settings()
-app = FastAPI(title="Lenoir Assistant API", version="4.0.0")
+app = FastAPI(title="Lenoir Assistant API", version="5.0.0")
 
 # ============================================================================
 # CORS Middleware - Allow Frontend to Call This API
@@ -54,6 +54,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(chat.router)
 app.include_router(voice.router)
+app.include_router(documents.router)  # v5: RAG document management
 
 # ============================================================================
 # Health Check Endpoint - Includes Redis Status
