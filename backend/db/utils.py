@@ -9,7 +9,8 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime
-from db.models import Session as SessionModel, Message
+from db.models import Session as SessionModel, Message, PersonalFact
+from services.fact_extractor import Fact
 
 
 async def get_or_create_session(
@@ -118,3 +119,28 @@ async def store_message(
     await db.commit()
     await db.refresh(message)
     return message
+
+
+async def store_personal_fact(
+    db: AsyncSession,
+    fact: Fact
+) -> PersonalFact:
+    """
+    Store a personal fact in the database (v4.1 long-term memory for owners).
+
+    Args:
+        db: Async database session
+        fact: Fact object with category, content, etc.
+
+    Returns:
+        Newly created PersonalFact object
+    """
+    personal_fact = PersonalFact(
+        category=fact.category,
+        content=fact.content,
+        created_at=datetime.utcnow()
+    )
+    db.add(personal_fact)
+    await db.commit()
+    await db.refresh(personal_fact)
+    return personal_fact

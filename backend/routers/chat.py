@@ -23,7 +23,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from uuid import UUID, uuid4
 from config import get_settings
 from db.session import get_db
-from db.utils import get_or_create_session, get_recent_messages, store_message
+from db.utils import get_or_create_session, get_recent_messages, store_message, store_personal_fact
 from routers.auth import get_is_owner
 from services.chain import (
     get_llm,
@@ -32,6 +32,8 @@ from services.chain import (
     build_owner_chain_response,
     build_stranger_chain_response,
 )
+from services.fact_extractor import FactExtractor
+from services.fact_manager import FactManager
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 settings = get_settings()
@@ -127,10 +129,34 @@ async def chat_message(
             modality="text"
         )
 
+        # Step 4.5: Extract and cache facts (v4.1 short-term memory)
+        cached_facts = []
+        if settings.FACT_EXTRACTION_ENABLED:
+            try:
+                facts = await FactExtractor.extract_facts(request.message)
+                for fact in facts:
+                    # Cache in Redis
+                    await FactManager.cache_fact(str(session_id), fact, settings.FACT_CACHE_TTL)
+                    # Store in PostgreSQL for owners (long-term persistence)
+                    if is_owner:
+                        await store_personal_fact(db, fact)
+                cached_facts.extend(facts)
+            except Exception as e:
+                # Log error but don't break chat flow
+                print(f"[chat_message] Error extracting facts: {str(e)}")
+
         # Step 5: Fetch recent messages for context
         # Owner: 10 messages, Guest: 5 messages
         limit = 10 if is_owner else 5
         recent_messages = await get_recent_messages(db, session_id, limit=limit)
+
+        # Step 5.5: Retrieve cached facts for context
+        retrieved_facts = []
+        if settings.FACT_EXTRACTION_ENABLED:
+            try:
+                retrieved_facts = await FactManager.get_cached_facts(str(session_id))
+            except Exception as e:
+                print(f"[chat_message] Error retrieving cached facts: {str(e)}")
 
         # Step 6: Get LLM instance
         llm = get_llm()
@@ -146,11 +172,19 @@ async def chat_message(
         # Step 8: Build system prompt and call LLM
         if is_owner:
             system_prompt = build_owner_system_prompt(request.language)
+            # Include facts in system prompt for owner
+            facts_context = FactManager.format_facts_for_context(retrieved_facts)
+            if facts_context:
+                system_prompt = facts_context + "\n" + system_prompt
             response = await build_owner_chain_response(
                 llm, system_prompt, langchain_messages, request.message
             )
         else:
             system_prompt = build_stranger_system_prompt(request.language)
+            # Include facts in system prompt for guest
+            facts_context = FactManager.format_facts_for_context(retrieved_facts)
+            if facts_context:
+                system_prompt = facts_context + "\n" + system_prompt
             response = await build_stranger_chain_response(
                 llm, system_prompt, langchain_messages, request.message
             )

@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     DATABASE_POOL_SIZE: int = 5  # v4: SQLAlchemy connection pool size
     DATABASE_MAX_OVERFLOW: int = 10  # v4: Max overflow connections
     DATABASE_ECHO: bool = False  # v4: Log SQL queries for debugging
+    FACT_CACHE_TTL: int = 28800  # Fact cache lifetime in seconds (8 hours)
+    FACT_CACHE_MAX_ITEMS: int = 50  # Max facts stored per session
+    FACT_EXTRACTION_ENABLED: bool = True  # Enable/disable fact extraction
 
     # Pydantic v2 configuration
     # env_file: Load variables from .env file in this directory
