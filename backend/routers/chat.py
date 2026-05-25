@@ -1,5 +1,5 @@
 """
-Chat router for handling conversation endpoints (v4: LangChain + PostgreSQL).
+Chat router for handling conversation endpoints (v5: RAG + LangChain + PostgreSQL).
 
 This module implements persistent chat with:
 - LangChain ConversationChain for intelligent memory management
@@ -7,13 +7,17 @@ This module implements persistent chat with:
 - Async SQLAlchemy for non-blocking database operations
 - Multi-language support with language persistence
 - Owner vs guest differentiation (owner: persistent, guest: ephemeral)
+- RAG system with pgvector semantic search (owner only, v5+)
+- Short-term fact caching for quick memory (v4.1+)
 
 Database Flow:
 1. Each chat request gets or creates a Session in PostgreSQL
 2. Backend fetches previous messages from DB for LangChain memory
-3. LangChain ConversationChain manages prompt building + OpenAI
-4. Backend stores user message and assistant response in DB
-5. Frontend receives session_id to persist across page reloads
+3. Backend extracts and caches facts (v4.1)
+4. Backend retrieves relevant document chunks (v5, owner only)
+5. LangChain ConversationChain manages prompt building + OpenAI
+6. Backend stores user message and assistant response in DB
+7. Frontend receives session_id to persist across page reloads
 """
 
 from fastapi import APIRouter, HTTPException, Request, Depends
@@ -34,6 +38,8 @@ from services.chain import (
 )
 from services.fact_extractor import FactExtractor
 from services.fact_manager import FactManager
+from services.vectorstore import retrieve_similar_chunks
+from services.rag_formatter import format_chunks_for_context
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 settings = get_settings()
@@ -160,6 +166,19 @@ async def chat_message(
             except Exception as e:
                 print(f"[chat_message] Error retrieving cached facts: {str(e)}")
 
+        # Step 5.7: Retrieve relevant document chunks for RAG (owner only, v5)
+        retrieved_chunks = []
+        if is_owner and settings.RAG_ENABLED:
+            try:
+                retrieved_chunks = await retrieve_similar_chunks(
+                    db,
+                    query_text=request.message,
+                    k=settings.MAX_CHUNKS_PER_QUERY,  # Top 10 chunks
+                    threshold=0.7
+                )
+            except Exception as e:
+                print(f"[chat_message] Error retrieving document chunks: {str(e)}")
+
         # Step 6: Get LLM instance
         llm = get_llm()
 
@@ -174,16 +193,24 @@ async def chat_message(
         # Step 8: Build system prompt and call LLM
         if is_owner:
             system_prompt = build_owner_system_prompt(request.language)
-            # Include facts in system prompt for owner
+
+            # Include document context (RAG, v5) - before facts (higher priority)
+            if settings.RAG_ENABLED and retrieved_chunks:
+                chunks_context = format_chunks_for_context(retrieved_chunks)
+                if chunks_context:
+                    system_prompt = chunks_context + "\n" + system_prompt
+
+            # Include facts in system prompt for owner (after documents, lower priority)
             facts_context = FactManager.format_facts_for_context(retrieved_facts)
             if facts_context:
                 system_prompt = facts_context + "\n" + system_prompt
+
             response = await build_owner_chain_response(
                 llm, system_prompt, langchain_messages, request.message
             )
         else:
             system_prompt = build_stranger_system_prompt(request.language)
-            # Include facts in system prompt for guest
+            # Include facts in system prompt for guest (no RAG for guests)
             facts_context = FactManager.format_facts_for_context(retrieved_facts)
             if facts_context:
                 system_prompt = facts_context + "\n" + system_prompt
