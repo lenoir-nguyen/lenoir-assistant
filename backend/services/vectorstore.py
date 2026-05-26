@@ -1,12 +1,12 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete
 from db.models import DocumentChunk
 from services.openai_client import embed_text
 import uuid
 
 
 async def store_chunk(
-    db: Session,
+    db: AsyncSession,
     source_type: str,
     source_id: uuid.UUID,
     content: str
@@ -34,13 +34,12 @@ async def store_chunk(
         embedding=embedding
     )
     db.add(chunk)
-    db.commit()
-    db.refresh(chunk)
+    await db.flush()
     return chunk
 
 
 async def retrieve_similar_chunks(
-    db: Session,
+    db: AsyncSession,
     query_text: str,
     k: int = 5,
     threshold: float = 0.7
@@ -68,7 +67,8 @@ async def retrieve_similar_chunks(
         DocumentChunk.embedding.cosine_distance(query_embedding)
     ).limit(k)
 
-    results = db.execute(stmt).scalars().all()
+    result = await db.execute(stmt)
+    results = result.scalars().all()
 
     # Filter by threshold if needed
     # For now, just return top k results
@@ -76,24 +76,25 @@ async def retrieve_similar_chunks(
 
 
 async def upsert_message_chunk(
-    db: Session,
+    db: AsyncSession,
     message_id: uuid.UUID,
     content: str
 ) -> DocumentChunk:
     """Store a message as a chunk for RAG retrieval."""
     # Delete existing chunk if present (for updates)
-    db.query(DocumentChunk).filter(
-        DocumentChunk.source_type == "conversation",
-        DocumentChunk.source_id == message_id
-    ).delete()
-    db.commit()
+    stmt = delete(DocumentChunk).where(
+        (DocumentChunk.source_type == "conversation") &
+        (DocumentChunk.source_id == message_id)
+    )
+    await db.execute(stmt)
+    await db.flush()
 
     # Store new chunk
     return await store_chunk(db, "conversation", message_id, content)
 
 
 async def bulk_retrieve_facts(
-    db: Session,
+    db: AsyncSession,
     query_text: str,
     k: int = 3
 ) -> list[str]:

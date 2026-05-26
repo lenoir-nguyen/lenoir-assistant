@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import uuid4, UUID
 import os
+import tempfile
 from config import get_settings
 from db.session import get_db
 from db.models import Document, DocumentChunk
@@ -140,8 +141,9 @@ async def upload_document(
 
         # Step 5: Process document (extract text and chunk)
         try:
-            # Save file temporarily for processing
-            temp_path = f"/tmp/{file.filename}"
+            # Save file temporarily for processing (cross-platform compatible)
+            temp_dir = tempfile.gettempdir()
+            temp_path = os.path.join(temp_dir, f"{document_id}_{file.filename}")
             with open(temp_path, 'wb') as f:
                 f.write(file_bytes)
 
