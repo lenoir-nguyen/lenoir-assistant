@@ -23,11 +23,21 @@ export default function DocumentUpload() {
     loadDocuments()
   }, [])
 
+  const getAuthToken = (): string | null => {
+    if (typeof window === 'undefined') return null
+    return sessionStorage.getItem('auth_token')
+  }
+
   const loadDocuments = async () => {
     try {
       setLoading(true)
       setError(null)
-      const docs = await listDocuments()
+      const authToken = getAuthToken()
+      if (!authToken) {
+        setError('Not authenticated')
+        return
+      }
+      const docs = await listDocuments(authToken)
       setDocuments(docs)
     } catch (err: any) {
       setError(err.message || 'Failed to load documents')
@@ -92,7 +102,12 @@ export default function DocumentUpload() {
     try {
       setUploading(true)
       setError(null)
-      const result = await uploadDocument(file)
+      const authToken = getAuthToken()
+      if (!authToken) {
+        setError('Not authenticated')
+        return
+      }
+      const result = await uploadDocument(file, undefined, authToken)
       console.log('Upload successful:', result)
       await loadDocuments()
     } catch (err: any) {
@@ -110,7 +125,12 @@ export default function DocumentUpload() {
 
     try {
       setError(null)
-      await deleteDocument(docId)
+      const authToken = getAuthToken()
+      if (!authToken) {
+        setError('Not authenticated')
+        return
+      }
+      await deleteDocument(docId, authToken)
       await loadDocuments()
     } catch (err: any) {
       setError(err.message || 'Failed to delete document')
