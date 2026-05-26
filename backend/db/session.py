@@ -1,3 +1,4 @@
+import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from config import get_settings
 
@@ -14,20 +15,22 @@ if db_url:
         db_url = db_url.replace("postgresql+asyncpg://", "postgresql+psycopg://")
 
 # Create async engine with pool settings for Railway/cloud deployments
-engine = create_async_engine(
-    db_url or "postgresql+asyncpg://localhost/lenoir_chatbot",
-    echo=settings.DATABASE_ECHO,
-    pool_pre_ping=True,
-    pool_size=settings.DATABASE_POOL_SIZE,
-    max_overflow=settings.DATABASE_MAX_OVERFLOW,
-    pool_recycle=3600,
-)
+# Skip engine creation during Alembic migrations to avoid async issues
+if not os.environ.get("ALEMBIC_RUNNING"):
+    engine = create_async_engine(
+        db_url or "postgresql+asyncpg://localhost/lenoir_chatbot",
+        echo=settings.DATABASE_ECHO,
+        pool_pre_ping=True,
+        pool_size=settings.DATABASE_POOL_SIZE,
+        max_overflow=settings.DATABASE_MAX_OVERFLOW,
+        pool_recycle=3600,
+    )
 
-AsyncSessionLocal = async_sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autocommit=False,
+    AsyncSessionLocal = async_sessionmaker(
+        engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autocommit=False,
     autoflush=False,
 )
 

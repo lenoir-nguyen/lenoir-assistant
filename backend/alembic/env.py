@@ -4,6 +4,9 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 
+# Set flag to skip async engine creation in db.session
+os.environ["ALEMBIC_RUNNING"] = "true"
+
 # Add backend directory to Python path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
