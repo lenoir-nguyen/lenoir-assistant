@@ -19,3 +19,10 @@ pgvector==0.2.4
 alembic==1.13.1
 langchain-openai==0.1.20
 langchain-core==0.2.26
+
+# v5: Document Processing & RAG
+pdfplumber==0.10.4
+python-docx==0.8.11
+openpyxl==3.1.2
+pillow==10.1.0
+pytesseract==0.3.10
