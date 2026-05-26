@@ -38,7 +38,7 @@ interface UploadDocumentResponse {
   uploaded_at: string
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://lenoir-chatbot-production.up.railway.app'
 
 export async function login(
   passphrase: string,
