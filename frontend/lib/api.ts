@@ -23,6 +23,21 @@ interface LoginResponse {
   is_owner: boolean
 }
 
+interface Document {
+  id: string
+  filename: string
+  description: string | null
+  uploaded_at: string
+  chunk_count: number
+}
+
+interface UploadDocumentResponse {
+  document_id: string
+  filename: string
+  chunk_count: number
+  uploaded_at: string
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 export async function login(
@@ -155,4 +170,60 @@ export async function speakText(text: string, language: string): Promise<Blob> {
 
   if (!response.ok) throw new Error(`TTS failed: ${response.statusText}`)
   return response.blob()
+}
+
+export async function uploadDocument(
+  file: File,
+  description: string | undefined,
+  authToken: string
+): Promise<UploadDocumentResponse> {
+  const formData = new FormData()
+  formData.append('file', file)
+  if (description) {
+    formData.append('description', description)
+  }
+
+  const response = await fetch(`${API_URL}/documents/upload`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${authToken}`,
+    },
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`Upload failed: ${error}`)
+  }
+  return response.json()
+}
+
+export async function listDocuments(authToken: string): Promise<Document[]> {
+  const response = await fetch(`${API_URL}/documents`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authToken}`,
+    },
+  })
+
+  if (!response.ok) {
+    console.error(`List documents failed: ${response.statusText}`)
+    return []
+  }
+  return response.json()
+}
+
+export async function deleteDocument(documentId: string, authToken: string): Promise<void> {
+  const response = await fetch(`${API_URL}/documents/${documentId}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authToken}`,
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error(`Delete failed: ${response.statusText}`)
+  }
 }
