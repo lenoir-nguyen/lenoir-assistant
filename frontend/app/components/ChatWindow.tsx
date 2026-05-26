@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import MessageBubble from './MessageBubble'
 import VoiceButton from './VoiceButton'
+import DocumentUpload from './DocumentUpload'
 import { sendMessage, getChatHistory } from '@/lib/api'
 
 interface Message {
@@ -29,6 +30,7 @@ export default function ChatWindow({ authToken, isOwner, onLogout }: ChatWindowP
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [showDocuments, setShowDocuments] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const language = 'en' // LLM automatically detects user language
 
@@ -132,6 +134,31 @@ export default function ChatWindow({ authToken, isOwner, onLogout }: ChatWindowP
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {isOwner && (
+            <button
+              onClick={() => setShowDocuments(!showDocuments)}
+              title="Toggle document upload panel"
+              style={{
+                padding: '6px 12px',
+                backgroundColor: showDocuments ? '#28a745' : '#17a2b8',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '13px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = showDocuments ? '#218838' : '#138496'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = showDocuments ? '#28a745' : '#17a2b8'
+              }}
+            >
+              📚 {showDocuments ? 'Hide' : 'Show'} Documents
+            </button>
+          )}
           <button
             onClick={handleClear}
             disabled={loading}
@@ -179,6 +206,11 @@ export default function ChatWindow({ authToken, isOwner, onLogout }: ChatWindowP
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column' }}>
+        {showDocuments && isOwner && (
+          <div style={{ marginBottom: '16px', borderBottom: '2px solid #ddd', paddingBottom: '16px' }}>
+            <DocumentUpload />
+          </div>
+        )}
         {messages.map((msg) => (
           <MessageBubble key={msg.id} role={msg.role} content={msg.content} timestamp={msg.timestamp} language={language} />
         ))}
