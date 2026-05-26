@@ -188,6 +188,7 @@ export async function uploadDocument(
     headers: {
       'Authorization': `Bearer ${authToken}`,
     },
+    credentials: 'include',
     body: formData,
   })
 
@@ -205,6 +206,7 @@ export async function listDocuments(authToken: string): Promise<Document[]> {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${authToken}`,
     },
+    credentials: 'include',
   })
 
   if (!response.ok) {
@@ -221,6 +223,7 @@ export async function deleteDocument(documentId: string, authToken: string): Pro
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${authToken}`,
     },
+    credentials: 'include',
   })
 
   if (!response.ok) {
