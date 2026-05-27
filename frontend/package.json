@@ -6,17 +6,23 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:production": "set FRONTEND_URL=https://lenoir-chatbot.vercel.app&& set BACKEND_URL=https://lenoir-chatbot-production.up.railway.app&& playwright test tests/v5-rag-production.spec.ts --headed",
+    "test:localhost": "set FRONTEND_URL=http://localhost:3000&& set BACKEND_URL=http://localhost:8000&& set USE_LOCAL_SERVER=true&& playwright test tests/v5-rag.spec.ts --headed"
   },
   "dependencies": {
+    "next": "^14.0.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "next": "^14.0.0"
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "typescript": "^5.2.0",
+    "@playwright/test": "^1.60.0",
     "@types/node": "^20.5.0",
     "@types/react": "^18.2.20",
-    "@types/react-dom": "^18.2.7"
+    "@types/react-dom": "^18.2.7",
+    "typescript": "^5.2.0"
   }
 }

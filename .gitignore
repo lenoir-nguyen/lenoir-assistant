@@ -7,8 +7,10 @@
 
 # Backend (Python)
 backend/__pycache__
-backend/*.pyc
-backend/*.pyo
+backend/**/__pycache__
+**/__pycache__
+*.pyc
+*.pyo
 backend/*.egg-info
 backend/.venv
 backend/venv
@@ -22,6 +24,9 @@ frontend/.env.local
 frontend/npm-debug.log
 frontend/yarn-error.log
 frontend/.vercel
+frontend/playwright-report
+frontend/test-results
+frontend/.playwright
 
 # IDE
 .vscode
